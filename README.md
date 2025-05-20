@@ -1,4 +1,11 @@
 # Egaite
+Draw with friends!
+
+# Design
+Each game has multiple rounds and multiple players. Each round has a word, an author and a list of guesses. Each guess has a player and a word.
+
+Each round an author is chosen to draw a new word. Each round will last 60 seconds. If a player guesses the word they receive 1 point. The first player that reaches the score limit wins. 
+
 
 To start your Phoenix server:
 

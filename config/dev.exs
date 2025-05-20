@@ -2,10 +2,10 @@ import Config
 
 # Configure your database
 config :egaite, Egaite.Repo,
-  username: "postgres",
-  password: "postgres",
+  username: "dev",
+  password: "dev",
   hostname: "localhost",
-  database: "egaite_dev",
+  database: "dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
