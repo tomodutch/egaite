@@ -15,6 +15,7 @@ defmodule Egaite.Application do
       # Start the Finch HTTP client for sending emails
       {Finch, name: Egaite.Finch},
       {Registry, keys: :unique, name: Egaite.GameRegistry},
+      Egaite.GameSupervisor,
       # Start a worker by calling: Egaite.Worker.start_link(arg)
       # {Egaite.Worker, arg},
       # Start to serve requests, typically the last entry

@@ -5,10 +5,14 @@ defmodule Egaite.GameTest do
   alias Egaite.{Game, Player}
 
   setup do
-    id = "1"
+    id = Integer.to_string(:erlang.unique_integer([:positive]))
     player1 = %Player{id: "1"}
-    {:ok, _pid} = Game.start_link(id, player1)
-    %{id: id, player1: player1}
+    {:ok, game_pid} = Game.start_link(id, player1, 2)
+    on_exit(fn ->
+      if Process.alive?(game_pid), do: GenServer.stop(game_pid, :normal)
+    end)
+
+    %{id: id, player1: player1, game_pid: game_pid}
   end
 
   test "does not allow duplicate game IDs", %{id: id, player1: player1} do
@@ -37,17 +41,19 @@ defmodule Egaite.GameTest do
     assert {:ok, _} = Game.start(id)
   end
 
-  test "players can leave the game", %{id: id, player1: player1} do
-    Game.remove_player(id, player1.id)
+  test "players can leave the game", %{id: id} do
+    Game.add_player(id, %Player{id: 2})
+    Game.remove_player(id, 2)
     {:ok, players} = Game.get_players(id)
-    refute Map.has_key?(players, player1.id)
+    refute Map.has_key?(players, 2)
   end
 
   test "game cannot start with fewer than 2 players", %{id: id} do
     assert {:error, :not_enough_players} = Game.start(id)
   end
 
-  test "basic game flow with guesses", %{id: id} do
+  test "basic game flow with guesses", %{id: id, game_pid: game_pid} do
+    monitor_ref = Process.monitor(game_pid)
     player1 = %Player{id: "1"}
     player2 = %Player{id: "2"}
 
@@ -64,5 +70,20 @@ defmodule Egaite.GameTest do
     assert {:error, :artist_can_not_guess} = Game.guess(id, player2.id, "cat")
     assert {:ok, :miss} = Game.guess(id, player1.id, "animal")
     assert {:ok, :hit} = Game.guess(id, player1.id, "cat")
+
+    assert_receive {:DOWN, ^monitor_ref, :process, ^game_pid, _reason}, 1000
+
+    refute Process.alive?(game_pid)
+  end
+
+  test "game should stop after all players left", %{id: id, game_pid: game_pid} do
+    monitor_ref = Process.monitor(game_pid)
+    player1 = %Player{id: "1"}
+
+    # Game already started in setup
+    Game.remove_player(id, player1.id)
+    assert_receive {:DOWN, ^monitor_ref, :process, ^game_pid, _reason}, 1000
+
+    refute Process.alive?(game_pid)
   end
 end

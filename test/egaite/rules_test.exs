@@ -25,4 +25,11 @@ defmodule Egaite.RulesTest do
     {:ok, pid} = Rules.start_link(3, game_pid)
     assert :ok = Rules.start_round(pid)
   end
+
+  test "stop game when 0 players" do
+    {:ok, rules_pid} = Rules.start_link(1, self())
+    Rules.set_player_count(rules_pid, 0)
+    assert {:game_over, _} = :sys.get_state(rules_pid)
+    assert_receive :game_over, 1000
+  end
 end

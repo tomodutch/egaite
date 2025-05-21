@@ -1,6 +1,6 @@
 defmodule Egaite.Game do
   require Logger
-  alias Egaite.{Game, Rules, Player}
+  alias Egaite.{Game, Rules}
   use GenServer
 
   defstruct id: :none,
@@ -12,8 +12,19 @@ defmodule Egaite.Game do
 
   ## Public API
 
-  def start_link(game_id, host_player) do
-    GenServer.start_link(__MODULE__, {game_id, host_player}, name: via_tuple(game_id))
+  def start_link({game_id, host_player}), do: start_link(game_id, host_player)
+
+  def start_link(game_id, host_player, max_rounds \\ 8) do
+    GenServer.start_link(__MODULE__, {game_id, host_player, max_rounds}, name: via_tuple(game_id))
+  end
+
+  def child_spec({game_id, _host_player} = args) do
+    %{
+      id: {:game, game_id},
+      start: {__MODULE__, :start_link, [args]},
+      restart: :transient,
+      type: :worker
+    }
   end
 
   def add_player(game_id, player), do: GenServer.call(via_tuple(game_id), {:add_player, player})
@@ -30,8 +41,8 @@ defmodule Egaite.Game do
 
   ## GenServer Callbacks
 
-  def init({game_id, host_player}) do
-    {:ok, rules_pid} = Rules.start_link(1, self())
+  def init({game_id, host_player, max_rounds}) do
+    {:ok, rules_pid} = Rules.start_link(1, self(), max_rounds)
 
     state = %Game{
       id: game_id,
@@ -62,7 +73,7 @@ defmodule Egaite.Game do
 
       {:error, :game_finished} ->
         Logger.info("Game finished.")
-        {:reply, {:error, :game_finished}, state}
+        {:stop, :normal, state}
     end
   end
 
@@ -111,6 +122,10 @@ defmodule Egaite.Game do
     {:reply, current_artist, state}
   end
 
+  def handle_info(:game_over, state) do
+    Logger.info("Game finished.")
+    {:stop, :normal, state}
+  end
   def handle_info({:round_ended, {round_num, max_rounds}}, state) do
     Logger.info("Round #{round_num}/#{max_rounds} ended.")
 
@@ -132,7 +147,7 @@ defmodule Egaite.Game do
 
       {:error, :game_finished} ->
         Logger.info("Game finished.")
-        {:noreply, state}
+        {:stop, :normal, state}
     end
   end
 

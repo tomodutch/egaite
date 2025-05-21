@@ -1,5 +1,5 @@
 defmodule Egaite.Rules do
-  use GenStateMachine, callback_mode: :state_functions
+  use GenStateMachine, callback_mode: [:state_functions, :state_enter]
   require Logger
 
   alias __MODULE__
@@ -8,8 +8,8 @@ defmodule Egaite.Rules do
 
   # Public API
 
-  def start_link(player_count, game_pid) do
-    GenStateMachine.start_link(__MODULE__, {player_count, game_pid})
+  def start_link(player_count, game_pid, max_rounds \\ 8) do
+    GenStateMachine.start_link(__MODULE__, {player_count, game_pid, max_rounds})
   end
 
   def ready_to_start?(pid), do: GenStateMachine.call(pid, :ready_to_start?)
@@ -19,18 +19,20 @@ defmodule Egaite.Rules do
 
   # Initialization
 
-  def init({player_count, game_pid}) do
+  def init({player_count, game_pid, max_rounds}) do
     {:ok, :waiting_for_players,
      %Rules{
        player_count: player_count,
        game_pid: game_pid,
        round: 0,
-       max_rounds: 8,
+       max_rounds: max_rounds,
        guessed_correctly: 0
      }}
   end
 
   # State: waiting_for_players
+
+  def waiting_for_players(:enter, _event, _state), do: {:keep_state_and_data, []}
 
   def waiting_for_players({:call, from}, :ready_to_start?, %Rules{player_count: count})
       when count >= 2 do
@@ -56,6 +58,8 @@ defmodule Egaite.Rules do
   def waiting_for_players(:cast, :guessed_correctly, _data), do: {:keep_state_and_data}
   # State: ready_to_start
 
+  def ready_to_start(:enter, _event, _state), do: {:keep_state_and_data, []}
+
   def ready_to_start({:call, from}, :ready_to_start?, _data) do
     {:keep_state_and_data, [{:reply, from, {:ok, true}}]}
   end
@@ -77,6 +81,8 @@ defmodule Egaite.Rules do
 
   def ready_to_start(:cast, :guessed_correctly, _data), do: {:keep_state_and_data}
   # State: round_active
+
+  def round_active(:enter, _event, _state), do: {:keep_state_and_data, []}
 
   def round_active({:call, from}, :ready_to_start?, _data) do
     {:keep_state_and_data, [{:reply, from, {:error, :game_in_progress}}]}
@@ -120,12 +126,20 @@ defmodule Egaite.Rules do
   end
 
   # State: game_over
+  def game_over(:enter, _event, _state) do
+    {:keep_state_and_data, [{:timeout, 0, :send_game_over}]}
+  end
+
+  def game_over(:timeout, :send_game_over, state) do
+    send(state.game_pid, :game_over)
+    {:keep_state_and_data, []}
+  end
 
   def game_over({:call, from}, :ready_to_start?, _data) do
     {:keep_state_and_data, [{:reply, from, {:error, :game_finished}}]}
   end
 
-  def game_over(:cast, :start_round, _data), do: {:keep_state_and_data}
+  def game_over(:cast, :start_round, _data), do: {:keep_state_and_data, []}
 
   def game_over(:cast, {:set_player_count, count}, data),
     do: {:keep_state, %{data | player_count: count}}
