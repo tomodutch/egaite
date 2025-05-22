@@ -12,6 +12,7 @@ defmodule Egaite.Application do
       Egaite.Repo,
       {DNSCluster, query: Application.get_env(:egaite, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Egaite.PubSub},
+      EgaiteWeb.Presence,
       # Start the Finch HTTP client for sending emails
       {Finch, name: Egaite.Finch},
       {Registry, keys: :unique, name: Egaite.GameRegistry},

@@ -91,6 +91,10 @@ defmodule Egaite.Game do
     end
   end
 
+  def handle_call({:guess, _player_id, _guess}, _from, %Game{word: :none} = state) do
+    {:reply, {:error, :word_not_set}, state}
+  end
+
   def handle_call({:guess, player_id, _guess}, _from, %Game{current_artist: player_id} = state) do
     {:reply, {:error, :artist_can_not_guess}, state}
   end

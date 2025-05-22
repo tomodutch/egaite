@@ -24,8 +24,9 @@
     </div>
   </div>
 </header>
-<main class="px-4 py-20 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-2xl">
+
+<main class={if @full_screen, do: "", else: "px-4 py-20 sm:px-6 lg:px-8"}>
+  <div class={if @full_screen, do: "max-w-full h-screen", else: "mx-auto"}>
     <.flash_group flash={@flash} />
     {@inner_content}
   </div>
