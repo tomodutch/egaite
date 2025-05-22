@@ -8,6 +8,7 @@ defmodule EgaiteWeb.Router do
     plug :put_root_layout, html: {EgaiteWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :put_player
   end
 
   pipeline :api do
@@ -16,6 +17,11 @@ defmodule EgaiteWeb.Router do
 
   scope "/", EgaiteWeb do
     pipe_through :browser
+
+    live_session :default, on_mount: [EgaiteWeb.InitAssigns] do
+      live "/games/:id", GameLive
+      live "/games", GamesListLive
+    end
 
     get "/", PageController, :home
   end
@@ -40,5 +46,26 @@ defmodule EgaiteWeb.Router do
       live_dashboard "/dashboard", metrics: EgaiteWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+  end
+
+  defp put_player(conn, _opts) do
+    case get_session(conn, "player") do
+      nil ->
+        player = %{
+          "id" => Ecto.UUID.generate(),
+          "name" => random_name()
+        }
+
+        put_session(conn, "player", player)
+
+      _existing ->
+        conn
+    end
+  end
+
+  defp random_name do
+    adjectives = ["Swift", "Clever", "Brave", "Witty", "Mighty", "Sneaky"]
+    animals = ["Fox", "Tiger", "Owl", "Bear", "Eagle", "Panther"]
+    "#{Enum.random(adjectives)}#{Enum.random(animals)}"
   end
 end

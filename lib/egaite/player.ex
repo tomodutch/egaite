@@ -1,3 +1,3 @@
 defmodule Egaite.Player do
-  defstruct [:id, score: 0]
+  defstruct [:id, name: :none, score: 0]
 end

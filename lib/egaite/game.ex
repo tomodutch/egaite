@@ -27,6 +27,10 @@ defmodule Egaite.Game do
     }
   end
 
+  def ready_to_start?(game_id) do
+    GenServer.call(via_tuple(game_id), :ready_to_start?)
+  end
+
   def add_player(game_id, player), do: GenServer.call(via_tuple(game_id), {:add_player, player})
 
   def remove_player(game_id, player_id),
@@ -54,6 +58,16 @@ defmodule Egaite.Game do
     }
 
     {:ok, state}
+  end
+
+  def handle_call(:ready_to_start?, _from, state) do
+    resp =
+      case Rules.ready_to_start?(state.rules_pid) do
+        {:ok, true} -> true
+        _ -> false
+      end
+
+    {:reply, resp, state}
   end
 
   def handle_call(:start, _from, state) do
@@ -126,6 +140,7 @@ defmodule Egaite.Game do
     Logger.info("Game finished.")
     {:stop, :normal, state}
   end
+
   def handle_info({:round_ended, {round_num, max_rounds}}, state) do
     Logger.info("Round #{round_num}/#{max_rounds} ended.")
 
