@@ -1,4 +1,5 @@
 import channelSocket from "../user_socket";
+import EventBus from "../event_bus";
 
 let GamePresence = {
   mounted() {
@@ -28,6 +29,10 @@ let GamePresence = {
     // Optional: handle Presence sync later
     gameChannel.on("presence_diff", (diff) => {
       console.log("Presence diff", diff)
+    })
+
+    gameChannel.on("round_started", () => {
+      EventBus.dispatchEvent(new Event("round_started"));
     })
 
     // Cleanup on unmount

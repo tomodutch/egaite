@@ -1,4 +1,5 @@
 import channelSocket from "../user_socket";
+import EventBus from "../event_bus";
 
 const Drawing = {
     mounted() {
@@ -144,7 +145,17 @@ const Drawing = {
             });
         });
 
+
+        EventBus.addEventListener("round_started", this.clearCanvas);
         resizeCanvas();
+    },
+    destroyed() {
+        EventBus.removeEventListener("round_started", this.clearCanvas);
+    },
+    clearCanvas() {
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 };
 

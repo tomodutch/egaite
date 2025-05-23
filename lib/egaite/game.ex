@@ -76,6 +76,12 @@ defmodule Egaite.Game do
         word = generate_word()
         Rules.start_round(state.rules_pid)
         new_state = %{state | word: word}
+
+        Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+          "event" => "round_started",
+          "artist" => state.current_artist
+        })
+
         {:reply, {:ok, word}, new_state}
 
       {:ok, false} ->
@@ -154,6 +160,12 @@ defmodule Egaite.Game do
         Rules.start_round(state.rules_pid)
         next_artist = get_next_artist(state.current_artist, state.player_order)
         new_state = %{state | word: word, current_artist: next_artist}
+
+        Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+          "event" => "round_started",
+          "artist" => next_artist
+        })
+
         {:noreply, new_state}
 
       {:ok, false} ->

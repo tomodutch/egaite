@@ -50,6 +50,18 @@ defmodule EgaiteWeb.GameLive do
     {:noreply, assign(socket, game_started: true)}
   end
 
+  def handle_info(%{"event" => "round_started", "artist" => artist}, socket) do
+    Logger.info("round over!")
+
+    msg = %{
+      id: System.unique_integer([:positive]),
+      body: "Starting next round",
+      name: "System"
+    }
+
+    {:noreply, socket |> assign(game_started: true) |> stream_insert(:messages, msg)}
+  end
+
   def handle_info(%{event: "presence_diff"}, socket) do
     game_id = socket.assigns.game_id
 
@@ -97,6 +109,7 @@ defmodule EgaiteWeb.GameLive do
 
         {:error, :artist_can_not_guess} ->
           {:noreply, stream_insert(socket, :messages, msg)}
+
         {:error, :word_not_set} ->
           {:noreply, stream_insert(socket, :messages, msg)}
       end

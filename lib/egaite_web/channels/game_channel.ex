@@ -53,6 +53,12 @@ defmodule EgaiteWeb.GameChannel do
   end
 
   @impl true
+  def handle_info(%{"event" => "round_started", "artist" => artist}, socket) do
+    push(socket, "round_started", %{})
+    {:noreply, socket}
+  end
+
+  @impl true
   def terminate(_reason, socket) do
     if Map.has_key?(socket.assigns, :game_id) do
       Game.remove_player(socket.assigns.game_id, socket.assigns.player_id)
