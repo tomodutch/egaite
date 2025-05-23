@@ -5,7 +5,6 @@ const Drawing = {
     mounted() {
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
-
         const resizeCanvas = () => {
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width;
@@ -18,6 +17,8 @@ const Drawing = {
         const gameId = this.el.dataset.gameId;
         const playerId = this.el.dataset.playerId;
         const playerName = this.el.dataset.playerName;
+        const artist = this.el.dataset.artist;
+        this.isArtist = artist === playerId;
 
         if (!gameId || !playerId || !playerName) {
             console.error("Missing game or player info for Drawing");
@@ -78,6 +79,7 @@ const Drawing = {
 
         const draw = (e) => {
             if (!isDrawing) return;
+            if (!this.isArtist) return;
             e.preventDefault();
 
             const pos = getCanvasPos(e);
@@ -146,13 +148,15 @@ const Drawing = {
         });
 
 
-        EventBus.addEventListener("round_started", this.clearCanvas);
+        EventBus.addEventListener("round_started", this.clearCanvas.bind(this));
         resizeCanvas();
     },
     destroyed() {
         EventBus.removeEventListener("round_started", this.clearCanvas);
     },
-    clearCanvas() {
+    clearCanvas(e) {
+        const { artist } = e.detail;
+        this.isArtist = artist === this.el.dataset.playerId;
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);

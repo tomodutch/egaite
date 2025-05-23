@@ -54,7 +54,7 @@ defmodule EgaiteWeb.GameChannel do
 
   @impl true
   def handle_info(%{"event" => "round_started", "artist" => artist}, socket) do
-    push(socket, "round_started", %{})
+    push(socket, "round_started", %{"artist" => artist})
     {:noreply, socket}
   end
 

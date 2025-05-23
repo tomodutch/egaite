@@ -31,8 +31,12 @@ let GamePresence = {
       console.log("Presence diff", diff)
     })
 
-    gameChannel.on("round_started", () => {
-      EventBus.dispatchEvent(new Event("round_started"));
+    gameChannel.on("round_started", (params) => {
+      EventBus.dispatchEvent(new CustomEvent("round_started", {
+        detail: {
+          artist: params.artist
+        }
+      }));
     })
 
     // Cleanup on unmount

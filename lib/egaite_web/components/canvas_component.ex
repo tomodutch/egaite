@@ -9,6 +9,7 @@ defmodule EgaiteWeb.CanvasComponent do
       data-game-id={@game_id}
       data-player-id={@player_id}
       data-player-name={@player_name}
+      data-artist={@artist}
       class="w-full h-full block border border-gray-300"
     />
     """

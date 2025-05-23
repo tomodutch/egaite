@@ -59,7 +59,7 @@ defmodule EgaiteWeb.GameLive do
       name: "System"
     }
 
-    {:noreply, socket |> assign(game_started: true) |> stream_insert(:messages, msg)}
+    {:noreply, socket |> assign(game_started: true) |> assign(current_artist: artist) |> stream_insert(:messages, msg)}
   end
 
   def handle_info(%{event: "presence_diff"}, socket) do
@@ -135,12 +135,12 @@ defmodule EgaiteWeb.GameLive do
     >
       <!-- Canvas Area -->
       <main class="w-full md:w-[60vw] h-[50vh] md:h-full border-b md:border-b-0 md:border-r border-gray-300">
-        <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} />
+        <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} artist={@current_artist} />
       </main>
 
     <!-- Sidebar: Players + Chat -->
       <aside class="w-full md:w-[40vw] max-w-full md:max-w-[40vw] flex flex-col h-full overflow-hidden">
-        <.players_list players={@players} />
+        <.players_list players={@players} artist={@current_artist} />
         <.chat_box messages={@streams.messages} />
       </aside>
 
