@@ -4,6 +4,7 @@ defmodule EgaiteWeb.GameLive do
   alias Egaite.{GameSupervisor, Game, Player}
   import EgaiteWeb.{CanvasComponent, PlayersListComponent, ChatBoxComponent, RulesComponent}
 
+  @impl true
   def mount(%{"id" => game_id}, _session, socket) do
     maybe_subscribe(socket, game_id)
 
@@ -12,19 +13,51 @@ defmodule EgaiteWeb.GameLive do
       :already_started -> :ok
     end
 
-    {:ok, initialize_socket(socket, game_id, socket.assigns.me)}
+    {:ok,
+     initialize_socket(socket, game_id, socket.assigns.me)
+     |> assign(:active_tab, "chat")}
   end
 
-  def terminate(_, socket) do
-    Logger.info(
-      "Terminating GameLive for game #{socket.assigns.game_id} and player #{socket.assigns.me.id}"
-    )
+  def handle_event("set_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :active_tab, tab)}
+  end
 
-    if Map.has_key?(socket.assigns, :game_id) do
-      Game.remove_player(socket.assigns.game_id, socket.assigns.me.id)
+  def handle_event("start", _params, socket) do
+    Game.start(socket.assigns.game_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("send_message", %{"body" => body}, socket) do
+    trimmed = String.trim(body)
+
+    if trimmed != "" do
+      msg = %{
+        id: System.unique_integer([:positive]),
+        body: trimmed,
+        name: socket.assigns.me.name
+      }
+
+      Phoenix.PubSub.broadcast(
+        Egaite.PubSub,
+        "chat:#{socket.assigns.game_id}",
+        {:new_message, msg}
+      )
+
+      reply_socket =
+        case Game.guess(socket.assigns.game_id, socket.assigns.me.id, trimmed) do
+          {:ok, :hit} ->
+            socket
+            |> stream_insert(:messages, system_msg("#{msg.name} guessed the word!"))
+            |> stream_insert(:messages, msg)
+
+          _ ->
+            stream_insert(socket, :messages, msg)
+        end
+
+      {:noreply, reply_socket}
+    else
+      {:noreply, socket}
     end
-
-    :ok
   end
 
   def handle_info({:new_message, msg}, socket) do
@@ -68,43 +101,20 @@ defmodule EgaiteWeb.GameLive do
     {:noreply, assign(socket, players: Map.values(players))}
   end
 
-  def handle_event("start", _params, socket) do
-    Game.start(socket.assigns.game_id)
-    {:noreply, socket}
-  end
+  @impl true
+  def terminate(_, socket) do
+    Logger.info(
+      "Terminating GameLive for game #{socket.assigns.game_id} and player #{socket.assigns.me.id}"
+    )
 
-  def handle_event("send_message", %{"body" => body}, socket) do
-    trimmed = String.trim(body)
-
-    if trimmed != "" do
-      msg = %{
-        id: System.unique_integer([:positive]),
-        body: trimmed,
-        name: socket.assigns.me.name
-      }
-
-      Phoenix.PubSub.broadcast(
-        Egaite.PubSub,
-        "chat:#{socket.assigns.game_id}",
-        {:new_message, msg}
-      )
-
-      reply_socket =
-        case Game.guess(socket.assigns.game_id, socket.assigns.me.id, trimmed) do
-          {:ok, :hit} ->
-            socket
-            |> stream_insert(:messages, system_msg("#{msg.name} guessed the word!"))
-            |> stream_insert(:messages, msg)
-
-          _ ->
-            stream_insert(socket, :messages, msg)
-        end
-
-      {:noreply, reply_socket}
-    else
-      {:noreply, socket}
+    if Map.has_key?(socket.assigns, :game_id) do
+      Game.remove_player(socket.assigns.game_id, socket.assigns.me.id)
     end
+
+    :ok
   end
+
+  # Helper Functions
 
   defp maybe_subscribe(socket, game_id) do
     if connected?(socket) do
@@ -142,6 +152,16 @@ defmodule EgaiteWeb.GameLive do
     %{id: System.unique_integer([:positive]), body: body, name: "System"}
   end
 
+  defp tab_class(active, current) do
+    base = "w-full text-center py-2 border-b-2"
+
+    if active == current do
+      base <> " border-blue-600 text-blue-600 font-semibold"
+    else
+      base <> " border-transparent text-gray-500 hover:text-gray-700"
+    end
+  end
+
   defp waiting_room(assigns) do
     ~H"""
     <div class="relative flex flex-col h-full justify-between">
@@ -169,41 +189,59 @@ defmodule EgaiteWeb.GameLive do
     """
   end
 
-  defp game_canvas(assigns) do
-    ~H"""
-    <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} artist={@current_artist} />
-    """
-  end
-
   @spec render(map()) :: Phoenix.LiveView.Rendered.t()
+  @impl true
   def render(assigns) do
     ~H"""
-    <div
-      id="game-presence"
-      phx-hook="GamePresence"
-      data-game-id={@game_id}
-      data-player-id={@me.id}
-      data-player-name={@me.name}
-      class="flex flex-col md:flex-row h-screen bg-white"
-    >
-      <!-- Left: Canvas Section -->
-      <main class="w-full md:w-[60%] h-1/2 md:h-full border-b md:border-b-0 md:border-r border-gray-300 p-4 overflow-auto">
+    <div id="game-container" class="flex flex-col md:flex-row h-screen bg-white">
+
+    <!-- Canvas section: Always visible -->
+      <div class="md:w-2/3 w-full h-1/2 md:h-full border-r">
         <%= if @game_started do %>
-          {game_canvas(assigns)}
+          <.canvas
+            game_id={@game_id}
+            player_id={@me.id}
+            player_name={@me.name}
+            artist={@current_artist}
+          />
         <% else %>
           {waiting_room(assigns)}
         <% end %>
-      </main>
+      </div>
 
-    <!-- Right: Players and Chat -->
-      <aside class="w-full md:w-[40%] h-1/2 md:h-full flex flex-col">
-        <div class="h-1/2 overflow-auto border-b border-gray-300">
-          <.players_list players={@players} artist={@current_artist} />
+    <!-- Tabs section: Rules / Players / Chat -->
+      <div class="md:w-1/3 w-full h-1/2 md:h-full flex flex-col">
+
+    <!-- Tab navigation -->
+        <nav class="flex border-b text-sm md:text-base">
+          <button phx-click="set_tab" phx-value-tab="chat" class={tab_class(@active_tab, "chat")}>
+            Chat
+          </button>
+          <button
+            phx-click="set_tab"
+            phx-value-tab="players"
+            class={tab_class(@active_tab, "players")}
+          >
+            Players
+          </button>
+          <button phx-click="set_tab" phx-value-tab="rules" class={tab_class(@active_tab, "rules")}>
+            Rules
+          </button>
+        </nav>
+
+    <!-- Tab content area -->
+        <div class="flex-1 overflow-auto relative">
+          <div class={"h-full tab-panel " <> if(@active_tab == "chat", do: "block", else: "hidden")}>
+            <.chat_box messages={@streams.messages} />
+          </div>
+          <div class={"h-full tab-panel " <> if(@active_tab == "players", do: "block", else: "hidden")}>
+            <.players_list players={@players} artist={@current_artist} />
+          </div>
+          <div class={"h-full tab-panel " <> if(@active_tab == "rules", do: "block", else: "hidden")}>
+            <.rules />
+          </div>
         </div>
-        <div class="h-1/2 overflow-auto">
-          <.chat_box messages={@streams.messages} />
-        </div>
-      </aside>
+      </div>
     </div>
     """
   end
