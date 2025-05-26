@@ -78,7 +78,12 @@ defmodule Egaite.Game do
         new_state = %{state | word: word}
 
         Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
-          "event" => "round_started",
+          "event" => "game_started",
+          "artist" => state.current_artist
+        })
+
+        Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
+          "event" => "clear_canvas",
           "artist" => state.current_artist
         })
 
@@ -161,9 +166,16 @@ defmodule Egaite.Game do
         next_artist = get_next_artist(state.current_artist, state.player_order)
         new_state = %{state | word: word, current_artist: next_artist}
 
+        Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
+          "event" => "clear_canvas",
+          "artist" => next_artist
+        })
+
         Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
           "event" => "round_started",
-          "artist" => next_artist
+          "artist" => next_artist,
+          "current_round" => round_num,
+          "max_rounds" => max_rounds
         })
 
         {:noreply, new_state}

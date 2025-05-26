@@ -1,5 +1,4 @@
 import channelSocket from "../user_socket";
-import EventBus from "../event_bus";
 
 let GamePresence = {
   mounted() {
@@ -13,7 +12,7 @@ let GamePresence = {
     }
 
     // Join the Phoenix channel
-    const gameChannel = channelSocket.channel(`game:${gameId}`, {
+    const gameChannel = channelSocket.channel(`game_presence:${gameId}`, {
       player_id: playerId,
       player_name: playerName,
     });
@@ -29,14 +28,6 @@ let GamePresence = {
     // Optional: handle Presence sync later
     gameChannel.on("presence_diff", (diff) => {
       console.log("Presence diff", diff)
-    })
-
-    gameChannel.on("round_started", (params) => {
-      EventBus.dispatchEvent(new CustomEvent("round_started", {
-        detail: {
-          artist: params.artist
-        }
-      }));
     })
 
     // Cleanup on unmount

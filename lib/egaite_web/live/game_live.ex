@@ -9,10 +9,16 @@ defmodule EgaiteWeb.GameLive do
       if connected?(socket) do
         Phoenix.PubSub.subscribe(Egaite.PubSub, "game:#{game_id}")
         Phoenix.PubSub.subscribe(Egaite.PubSub, "chat:#{game_id}")
+        Phoenix.PubSub.subscribe(Egaite.PubSub, "game_presence:#{game_id}")
       end
 
       {:ok, players} = Game.get_players(game_id)
       current_artist = Game.get_current_artist(game_id)
+
+      Game.add_player(game_id, %Player{
+        id: socket.assigns.me.id,
+        name: socket.assigns.me.name
+      })
 
       socket =
         socket
@@ -35,6 +41,11 @@ defmodule EgaiteWeb.GameLive do
         {:ok, players} = Game.get_players(game_id)
         current_artist = Game.get_current_artist(game_id)
 
+        Game.add_player(game_id, %Player{
+          id: socket.assigns.me.id,
+          name: socket.assigns.me.name
+        })
+
         socket =
           socket
           |> assign(:game_id, game_id)
@@ -48,16 +59,41 @@ defmodule EgaiteWeb.GameLive do
     end
   end
 
-  def handle_info(%{event: "game_started"}, socket) do
+  def terminate(_, socket) do
+    Logger.info("Terminating GameLive for game #{socket.assigns.game_id} and player #{socket.assigns.me.id}")
+    if Map.has_key?(socket.assigns, :game_id) do
+      Game.remove_player(socket.assigns.game_id, socket.assigns.me.id)
+    end
+
+    :ok
+  end
+
+  def handle_info(%{"event" => "game_started", "artist" => artist}, socket) do
+    socket =
+      socket
+      |> assign(:game_started, true)
+      |> assign(:current_artist, artist)
+      |> stream_insert(:messages, %{
+        id: System.unique_integer([:positive]),
+        body: "The game has started! Get ready to draw and guess!",
+        name: "System"
+      })
+
     {:noreply, assign(socket, game_started: true)}
   end
 
-  def handle_info(%{"event" => "round_started", "artist" => artist}, socket) do
-    Logger.info("round over!")
-
+  def handle_info(
+        %{
+          "event" => "round_started",
+          "artist" => artist,
+          "current_round" => current_round,
+          "max_rounds" => max_rounds
+        },
+        socket
+      ) do
     msg = %{
       id: System.unique_integer([:positive]),
-      body: "Starting next round",
+      body: "Starting round #{current_round} of #{max_rounds}. The artist is now #{artist}.",
       name: "System"
     }
 
@@ -79,9 +115,7 @@ defmodule EgaiteWeb.GameLive do
 
   def handle_event("start", _params, socket) do
     game_id = socket.assigns.game_id
-    Logger.info("Game #{game_id} is about to start")
-    Game.start(game_id)
-    Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{game_id}", %{event: "game_started"})
+    {:ok, _word_to_guess} = Game.start(game_id)
     {:noreply, socket}
   end
 

@@ -1,5 +1,4 @@
 import channelSocket from "../user_socket";
-import EventBus from "../event_bus";
 
 const Drawing = {
     mounted() {
@@ -147,19 +146,12 @@ const Drawing = {
             });
         });
 
+        drawingChannel.on("clear_canvas", ({ artist }) => {
+            this.isArtist = artist === this.el.dataset.playerId;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        })
 
-        EventBus.addEventListener("round_started", this.clearCanvas.bind(this));
         resizeCanvas();
-    },
-    destroyed() {
-        EventBus.removeEventListener("round_started", this.clearCanvas);
-    },
-    clearCanvas(e) {
-        const { artist } = e.detail;
-        this.isArtist = artist === this.el.dataset.playerId;
-        const canvas = document.getElementById("drawingCanvas");
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 };
 

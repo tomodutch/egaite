@@ -8,8 +8,8 @@ defmodule EgaiteWeb.UserSocket do
 
   ## Channels
 
-  channel "game:*", EgaiteWeb.GameChannel
   channel "drawing:*", EgaiteWeb.DrawingChannel
+  channel "game_presence:*", EgaiteWeb.GamePresenceChannel
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After
