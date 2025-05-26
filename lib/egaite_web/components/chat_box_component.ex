@@ -4,7 +4,7 @@ defmodule EgaiteWeb.ChatBoxComponent do
   def chat_box(assigns) do
     ~H"""
     <section class="flex flex-col h-full p-4 bg-gray-50">
-      <div id="chat-messages" phx-update="stream" class="flex-grow overflow-auto space-y-2 mb-4">
+      <div id="chat-messages" phx-update="stream" phx-hook="AutoScroll" class="flex-grow overflow-auto space-y-2 mb-4">
         <%= for {id, msg} <- @messages do %>
           <p id={"msg-#{id}"}><strong>{msg.name}:</strong> {msg.body}</p>
         <% end %>
