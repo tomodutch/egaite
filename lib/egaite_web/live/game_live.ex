@@ -18,15 +18,18 @@ defmodule EgaiteWeb.GameLive do
      |> assign(:active_tab, "chat")}
   end
 
+  @impl true
   def handle_event("set_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, tab)}
   end
 
+  @impl true
   def handle_event("start", _params, socket) do
     Game.start(socket.assigns.game_id)
     {:noreply, socket}
   end
 
+  @impl true
   def handle_event("send_message", %{"body" => body}, socket) do
     trimmed = String.trim(body)
 
@@ -60,10 +63,43 @@ defmodule EgaiteWeb.GameLive do
     end
   end
 
+  @impl true
   def handle_info({:new_message, msg}, socket) do
     {:noreply, stream_insert(socket, :messages, msg)}
   end
 
+  @impl true
+  def handle_info(%{"event" => "player_joined", "player" => player, "players" => players}, socket) do
+    socket =
+      socket
+      |> assign(:players, Map.values(players))
+      |> stream_insert(:messages, system_msg("#{player.name} has joined the game!"))
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(%{"event" => "player_left", "player" => player, "players" => players}, socket) do
+    socket =
+      socket
+      |> assign(:players, Map.values(players))
+      |> stream_insert(:messages, system_msg("#{player.name} has left the game!"))
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(%{"event" => "game_ended"}, socket) do
+    socket =
+      socket
+      |> assign(:game_started, false)
+      |> assign(:current_artist, nil)
+      |> stream_insert(:messages, system_msg("The game has ended. Thanks for playing!"))
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info(%{"event" => "game_started", "artist" => artist}, socket) do
     socket =
       socket
@@ -77,6 +113,7 @@ defmodule EgaiteWeb.GameLive do
     {:noreply, socket}
   end
 
+  @impl true
   def handle_info(
         %{
           "event" => "round_started",
@@ -96,22 +133,10 @@ defmodule EgaiteWeb.GameLive do
      |> stream_insert(:messages, message)}
   end
 
+  @impl true
   def handle_info(%{event: "presence_diff"}, socket) do
     {:ok, players} = Game.get_players(socket.assigns.game_id)
     {:noreply, assign(socket, players: Map.values(players))}
-  end
-
-  @impl true
-  def terminate(_, socket) do
-    Logger.info(
-      "Terminating GameLive for game #{socket.assigns.game_id} and player #{socket.assigns.me.id}"
-    )
-
-    if Map.has_key?(socket.assigns, :game_id) do
-      Game.remove_player(socket.assigns.game_id, socket.assigns.me.id)
-    end
-
-    :ok
   end
 
   # Helper Functions
@@ -193,7 +218,7 @@ defmodule EgaiteWeb.GameLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="game-container" class="flex flex-col md:flex-row h-screen bg-white">
+    <div id="game-container" phx-hook="GamePresence" data-gameId={@game_id} data-playerId={@me.id} class="flex flex-col md:flex-row h-screen bg-white">
 
     <!-- Canvas section: Always visible -->
       <div class="md:w-2/3 w-full h-1/2 md:h-full border-r">

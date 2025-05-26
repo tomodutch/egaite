@@ -1,5 +1,6 @@
 defmodule Egaite.Game do
   require Logger
+  alias ElixirSense.Log
   alias Egaite.{Game, Rules}
   use GenServer
 
@@ -126,15 +127,37 @@ defmodule Egaite.Game do
       new_players = Map.put(state.players, player.id, player)
       new_order = state.player_order ++ [player.id]
       Rules.set_player_count(state.rules_pid, map_size(new_players))
+
+      Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+        "event" => "player_joined",
+        "player" => player,
+        "players" => new_players
+      })
+
       {:reply, :ok, %{state | players: new_players, player_order: new_order}}
     end
   end
 
   def handle_call({:remove_player, player_id}, _from, state) do
-    new_players = Map.delete(state.players, player_id)
-    new_order = List.delete(state.player_order, player_id)
-    Rules.set_player_count(state.rules_pid, map_size(new_players))
-    {:reply, :ok, %{state | players: new_players, player_order: new_order}}
+    Logger.info("Removing player #{player_id} from game #{state.id}")
+    player = Map.get(state.players, player_id)
+
+    if !is_nil(player) do
+      new_players = Map.delete(state.players, player_id)
+      new_order = List.delete(state.player_order, player_id)
+      Rules.set_player_count(state.rules_pid, map_size(new_players))
+
+      Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+        "event" => "player_left",
+        "player" => player,
+        "players" => new_players
+      })
+
+      {:reply, :ok, %{state | players: new_players, player_order: new_order}}
+    else
+      Logger.info("Tried removing player #{player_id} but not found in game #{state.id}")
+      {:reply, :ok, state}
+    end
   end
 
   def handle_call(:get_players, _from, state) do
@@ -153,6 +176,10 @@ defmodule Egaite.Game do
 
   def handle_info(:game_over, state) do
     Logger.info("Game finished.")
+    Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+      "event" => "game_ended"
+    })
+
     {:stop, :normal, state}
   end
 

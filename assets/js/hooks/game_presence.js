@@ -2,11 +2,10 @@ import channelSocket from "../user_socket";
 
 let GamePresence = {
   mounted() {
-    const gameId = this.el.dataset.gameId
-    const playerId = this.el.dataset.playerId
-    const playerName = this.el.dataset.playerName
+    const gameId = this.el.dataset.gameid
+    const playerId = this.el.dataset.playerid
 
-    if (!gameId || !playerId || !playerName) {
+    if (!gameId || !playerId) {
       console.error("Missing game or player info for Presence")
       return
     }
@@ -14,7 +13,6 @@ let GamePresence = {
     // Join the Phoenix channel
     const gameChannel = channelSocket.channel(`game_presence:${gameId}`, {
       player_id: playerId,
-      player_name: playerName,
     });
 
     gameChannel.join()
