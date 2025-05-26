@@ -176,6 +176,7 @@ defmodule Egaite.Game do
 
   def handle_info(:game_over, state) do
     Logger.info("Game finished.")
+
     Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
       "event" => "game_ended"
     })
@@ -193,16 +194,20 @@ defmodule Egaite.Game do
         next_artist = get_next_artist(state.current_artist, state.player_order)
         new_state = %{state | word: word, current_artist: next_artist}
 
+        artist_name = Map.get(state.players, next_artist).name
+
         Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
           "event" => "clear_canvas",
-          "artist" => next_artist
+          "artist" => next_artist,
+          "artist_name" => artist_name
         })
 
         Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
           "event" => "round_started",
           "artist" => next_artist,
           "current_round" => round_num,
-          "max_rounds" => max_rounds
+          "max_rounds" => max_rounds,
+          "artist_name" => artist_name
         })
 
         {:noreply, new_state}

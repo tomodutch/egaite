@@ -118,13 +118,16 @@ defmodule EgaiteWeb.GameLive do
         %{
           "event" => "round_started",
           "artist" => artist,
+          "artist_name" => artist_name,
           "current_round" => current_round,
           "max_rounds" => max_rounds
         },
         socket
       ) do
     message =
-      system_msg("Starting round #{current_round} of #{max_rounds}. The artist is now #{artist}.")
+      system_msg(
+        "Starting round #{current_round} of #{max_rounds}. The artist is now #{artist_name}."
+      )
 
     {:noreply,
      socket
@@ -218,7 +221,13 @@ defmodule EgaiteWeb.GameLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="game-container" phx-hook="GamePresence" data-gameId={@game_id} data-playerId={@me.id} class="flex flex-col md:flex-row h-screen bg-white">
+    <div
+      id="game-container"
+      phx-hook="GamePresence"
+      data-gameId={@game_id}
+      data-playerId={@me.id}
+      class="flex flex-col md:flex-row h-screen bg-white"
+    >
 
     <!-- Canvas section: Always visible -->
       <div class="md:w-2/3 w-full h-1/2 md:h-full border-r">
