@@ -165,8 +165,6 @@ defmodule EgaiteWeb.GameLive do
   defp waiting_room(assigns) do
     ~H"""
     <div class="relative flex flex-col h-full justify-between">
-      <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} artist={nil} />
-
       <%= if @current_artist == @me.id do %>
         <!-- Overlay for artist with rules and start button -->
         <div

@@ -4,14 +4,37 @@ const Drawing = {
     mounted() {
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
+
+        // History of all points for redraw on resize
+        let history = [];
+
+        const redraw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            history.forEach(({ from, to, color }) => {
+                const absFrom = toAbsolute(from, canvas);
+                const absTo = toAbsolute(to, canvas);
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.lineCap = "round";
+
+                ctx.beginPath();
+                ctx.moveTo(absFrom.x, absFrom.y);
+                ctx.lineTo(absTo.x, absTo.y);
+                ctx.stroke();
+            });
+        };
+
         const resizeCanvas = () => {
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width;
             canvas.height = rect.height;
-            // Redraw logic goes here if you store and re-render history
+            redraw();
         };
 
-        window.addEventListener("resize", resizeCanvas);
+        const resizeObserver = new ResizeObserver(resizeCanvas);
+        resizeObserver.observe(canvas);
 
         const gameId = this.el.dataset.gameId;
         const playerId = this.el.dataset.playerId;
@@ -32,7 +55,9 @@ const Drawing = {
         drawingChannel
             .join()
             .receive("ok", (resp) => console.log("Joined drawing channel", resp))
-            .receive("error", (err) => console.error("Unable to join drawing channel", err));
+            .receive("error", (err) =>
+                console.error("Unable to join drawing channel", err)
+            );
 
         let lastX = 0;
         let lastY = 0;
@@ -61,7 +86,7 @@ const Drawing = {
 
         const toAbsolute = (rel, canvas) => ({
             x: rel.x * canvas.width,
-            y: rel.y * canvas.height
+            y: rel.y * canvas.height,
         });
 
         const startDrawing = (e) => {
@@ -98,11 +123,14 @@ const Drawing = {
             ctx.lineTo(absTo.x, absTo.y);
             ctx.stroke();
 
-            pointQueue.push({
+            const point = {
                 from: { x: lastX, y: lastY },
                 to: { x: newX, y: newY },
                 color: strokeColor,
-            });
+            };
+
+            pointQueue.push(point);
+            history.push(point); // Store in history for redraw
 
             lastX = newX;
             lastY = newY;
@@ -132,6 +160,10 @@ const Drawing = {
         // Receive and render drawings
         drawingChannel.on("draw_batch", ({ points }) => {
             points.forEach(({ from, to, color }) => {
+                // Add points to history
+                history.push({ from, to, color });
+
+                // Draw only the new points
                 const absFrom = toAbsolute(from, canvas);
                 const absTo = toAbsolute(to, canvas);
 
@@ -147,12 +179,19 @@ const Drawing = {
         });
 
         drawingChannel.on("clear_canvas", ({ artist }) => {
-            this.isArtist = artist === this.el.dataset.playerId;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        })
+            requestAnimationFrame(() => {
+                resizeCanvas();
+                this.isArtist = artist === this.el.dataset.playerId;
+                history.length = []; // Clear history
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            });
+        });
 
-        resizeCanvas();
-    }
+        // only resize canvas when browser rendered the page
+        requestAnimationFrame(() => {
+            resizeCanvas();
+        });
+    },
 };
 
 export default Drawing;
