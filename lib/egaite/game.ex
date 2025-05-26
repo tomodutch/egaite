@@ -233,8 +233,20 @@ defmodule Egaite.Game do
   defp via_tuple(game_id), do: {:via, Registry, {Egaite.GameRegistry, game_id}}
 
   defp generate_word do
-    # Placeholder
-    "cat"
+    # Placeholder. Get from database
+    Enum.random([
+      "cat",
+      "dog",
+      "elephant",
+      "giraffe",
+      "monkey",
+      "rabbit",
+      "dolphin",
+      "turtle",
+      "lion",
+      "panda",
+      "snake"
+    ])
   end
 
   defp get_next_artist(current, players) do
