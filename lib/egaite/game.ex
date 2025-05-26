@@ -80,7 +80,8 @@ defmodule Egaite.Game do
 
         Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
           "event" => "game_started",
-          "artist" => state.current_artist
+          "artist" => state.current_artist,
+          "word_to_draw" => word
         })
 
         Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
@@ -207,7 +208,8 @@ defmodule Egaite.Game do
           "artist" => next_artist,
           "current_round" => round_num,
           "max_rounds" => max_rounds,
-          "artist_name" => artist_name
+          "artist_name" => artist_name,
+          "word_to_draw" => word
         })
 
         {:noreply, new_state}

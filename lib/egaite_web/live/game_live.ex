@@ -100,11 +100,15 @@ defmodule EgaiteWeb.GameLive do
   end
 
   @impl true
-  def handle_info(%{"event" => "game_started", "artist" => artist}, socket) do
+  def handle_info(
+        %{"event" => "game_started", "artist" => artist, "word_to_draw" => word_to_draw},
+        socket
+      ) do
     socket =
       socket
       |> assign(:game_started, true)
       |> assign(:current_artist, artist)
+      |> assign(:word, word_to_draw)
       |> stream_insert(
         :messages,
         system_msg("The game has started! Get ready to draw and guess!")
@@ -120,7 +124,8 @@ defmodule EgaiteWeb.GameLive do
           "artist" => artist,
           "artist_name" => artist_name,
           "current_round" => current_round,
-          "max_rounds" => max_rounds
+          "max_rounds" => max_rounds,
+          "word_to_draw" => word_to_draw
         },
         socket
       ) do
@@ -133,6 +138,7 @@ defmodule EgaiteWeb.GameLive do
      socket
      |> assign(:game_started, true)
      |> assign(:current_artist, artist)
+     |> assign(:word, word_to_draw)
      |> stream_insert(:messages, message)}
   end
 
@@ -173,6 +179,7 @@ defmodule EgaiteWeb.GameLive do
     |> assign(:players, Map.values(players))
     |> assign(:current_artist, current_artist)
     |> assign(:full_screen, true)
+    |> assign(:word, nil)
     |> stream(:messages, [])
   end
 
@@ -192,26 +199,20 @@ defmodule EgaiteWeb.GameLive do
 
   defp waiting_room(assigns) do
     ~H"""
-    <div class="relative flex flex-col h-full justify-between">
+    <div class="h-full pt-12 flex flex-col justify-center items-center overflow-auto px-4 text-center">
       <%= if @current_artist == @me.id do %>
-        <div
-          class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 text-white z-10 p-6"
-          style="pointer-events:auto;"
+        <.rules />
+        <button
+          phx-click="start"
+          type="button"
+          class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
         >
-          <div class="max-w-lg w-full mb-6"><.rules /></div>
-          <button
-            phx-click="start"
-            type="button"
-            class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Start Game
-          </button>
-        </div>
+          Start Game
+        </button>
       <% else %>
-        <div class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-30 text-white text-center z-10 p-6 pointer-events-none">
-          <div class="max-w-lg w-full mb-4"><.rules /></div>
-          <p class="italic text-lg">Waiting for the artist to start the game...</p>
-        </div>
+        <p class="italic text-lg text-gray-700 max-w-xs mx-auto mt-4">
+          <.rules />
+        </p>
       <% end %>
     </div>
     """
@@ -228,26 +229,40 @@ defmodule EgaiteWeb.GameLive do
       data-playerId={@me.id}
       class="flex flex-col md:flex-row h-screen bg-white"
     >
+      <!-- Left: Canvas section -->
+      <div class="md:w-2/3 w-full md:h-full flex flex-col border-r h-1/2">
+        <div class="bg-blue-100 border border-blue-500 text-blue-800 font-bold p-2 text-center flex-shrink-0 h-12 sticky top-0 z-10">
+          <%= cond do %>
+            <% !@game_started -> %>
+              Waiting for the artist to start the game...
+            <% @current_artist == @me.id -> %>
+              🎨 Draw: {@word}
+            <% true -> %>
+            Guess in chat!
+          <% end %>
+        </div>
 
-    <!-- Canvas section: Always visible -->
-      <div class="md:w-2/3 w-full h-1/2 md:h-full border-r">
-        <%= if @game_started do %>
-          <.canvas
-            game_id={@game_id}
-            player_id={@me.id}
-            player_name={@me.name}
-            artist={@current_artist}
-          />
-        <% else %>
-          {waiting_room(assigns)}
-        <% end %>
+    <!-- Canvas or waiting room fills the rest -->
+        <div class="flex-grow overflow-hidden">
+          <%= if @game_started do %>
+            <.canvas
+              game_id={@game_id}
+              player_id={@me.id}
+              player_name={@me.name}
+              artist={@current_artist}
+              class="w-full h-full"
+            />
+          <% else %>
+            {waiting_room(assigns)}
+          <% end %>
+        </div>
       </div>
 
-    <!-- Tabs section: Rules / Players / Chat -->
-      <div class="md:w-1/3 w-full h-1/2 md:h-full flex flex-col">
-
-    <!-- Tab navigation -->
-        <nav class="flex border-b text-sm md:text-base">
+    <!-- Right: Tabs section -->
+      <div class="md:w-1/3 w-full md:h-full flex flex-col h-1/2">
+        <!-- Tabs navigation -->
+        <nav class="flex border-b text-sm md:text-base h-12">
+          <!-- fixed height 3rem (12) -->
           <button phx-click="set_tab" phx-value-tab="chat" class={tab_class(@active_tab, "chat")}>
             Chat
           </button>
@@ -263,7 +278,7 @@ defmodule EgaiteWeb.GameLive do
           </button>
         </nav>
 
-    <!-- Tab content area -->
+    <!-- Tab content -->
         <div class="flex-1 overflow-auto relative">
           <div class={"h-full tab-panel " <> if(@active_tab == "chat", do: "block", else: "hidden")}>
             <.chat_box messages={@streams.messages} />

@@ -3,14 +3,10 @@ defmodule EgaiteWeb.RulesComponent do
 
   def rules(assigns) do
     ~H"""
-    <section class="mb-4 p-4 border rounded relative">
+    <section class="mb-4 p-4">
       <h2 class="text-lg font-bold mb-2">Game Rules & Instructions</h2>
       <p class="mb-2">
-        Welcome to the game! The artist will draw a word, and other players try to guess it by chatting.
-        When you are the artist, start the game and draw your word on the canvas.
-      </p>
-      <p class="mb-2">
-        Players can chat and guess anytime. The first correct guess wins the round!
+        The artist draws, and everyone guesses in chat! Ready, set, draw! 🎨💬
       </p>
     </section>
     """
