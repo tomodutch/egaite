@@ -1,8 +1,8 @@
 defmodule EgaiteWeb.GameLive do
-  require Logger
   use EgaiteWeb, :live_view
+  require Logger
   alias Egaite.{GameSupervisor, Game, Player}
-  import EgaiteWeb.{CanvasComponent, PlayersListComponent, ChatBoxComponent}
+  import EgaiteWeb.{CanvasComponent, PlayersListComponent, ChatBoxComponent, RulesComponent}
 
   def mount(%{"id" => game_id}, _session, socket) do
     try do
@@ -14,15 +14,16 @@ defmodule EgaiteWeb.GameLive do
       {:ok, players} = Game.get_players(game_id)
       current_artist = Game.get_current_artist(game_id)
 
-      {:ok,
-       assign(socket,
-         game_id: game_id,
-         players: Map.values(players),
-         current_artist: current_artist,
-         game_started: false,
-         full_screen: true
-       )
-       |> stream(:messages, [])}
+      socket =
+        socket
+        |> assign(:game_id, game_id)
+        |> assign(:game_started, false)
+        |> assign(:players, Map.values(players))
+        |> assign(:current_artist, current_artist)
+        |> assign(:full_screen, true)
+        |> stream(:messages, [])
+
+      {:ok, socket}
     catch
       :exit, {:noproc, _} ->
         {:ok, _pid} =
@@ -34,15 +35,16 @@ defmodule EgaiteWeb.GameLive do
         {:ok, players} = Game.get_players(game_id)
         current_artist = Game.get_current_artist(game_id)
 
-        {:ok,
-         assign(socket,
-           game_id: game_id,
-           players: Map.values(players),
-           current_artist: current_artist,
-           game_started: false,
-           full_screen: true
-         )
-         |> stream(:messages, [])}
+        socket =
+          socket
+          |> assign(:game_id, game_id)
+          |> assign(:game_started, false)
+          |> assign(:players, Map.values(players))
+          |> assign(:current_artist, current_artist)
+          |> assign(:full_screen, true)
+          |> stream(:messages, [])
+
+        {:ok, socket}
     end
   end
 
@@ -59,7 +61,11 @@ defmodule EgaiteWeb.GameLive do
       name: "System"
     }
 
-    {:noreply, socket |> assign(game_started: true) |> assign(current_artist: artist) |> stream_insert(:messages, msg)}
+    {:noreply,
+     socket
+     |> assign(game_started: true)
+     |> assign(current_artist: artist)
+     |> stream_insert(:messages, msg)}
   end
 
   def handle_info(%{event: "presence_diff"}, socket) do
@@ -73,7 +79,7 @@ defmodule EgaiteWeb.GameLive do
 
   def handle_event("start", _params, socket) do
     game_id = socket.assigns.game_id
-    Logger.info("Game #{socket.assigns.game_id} is about to start")
+    Logger.info("Game #{game_id} is about to start")
     Game.start(game_id)
     Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{game_id}", %{event: "game_started"})
     {:noreply, socket}
@@ -122,7 +128,48 @@ defmodule EgaiteWeb.GameLive do
     {:noreply, stream_insert(socket, :messages, msg)}
   end
 
-  @spec render(any()) :: Phoenix.LiveView.Rendered.t()
+  defp waiting_room(assigns) do
+    ~H"""
+    <div class="relative flex flex-col h-full justify-between">
+      <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} artist={nil} />
+
+      <%= if @current_artist == @me.id do %>
+        <!-- Overlay for artist with rules and start button -->
+        <div
+          class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 text-white z-10 p-6"
+          style="pointer-events:auto;"
+        >
+          <div class="max-w-lg w-full mb-6">
+            <.rules />
+          </div>
+
+          <button
+            phx-click="start"
+            type="button"
+            class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Start Game
+          </button>
+        </div>
+      <% else %>
+        <div class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-30 text-white text-center z-10 p-6 pointer-events-none">
+          <div class="max-w-lg w-full mb-4">
+            <.rules />
+          </div>
+          <p class="italic text-lg">Waiting for the artist to start the game...</p>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp game_canvas(assigns) do
+    ~H"""
+    <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} artist={@current_artist} />
+    """
+  end
+
+  @spec render(any) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div
@@ -133,33 +180,27 @@ defmodule EgaiteWeb.GameLive do
       data-player-name={@me.name}
       class="flex flex-col md:flex-row h-screen bg-white"
     >
-      <!-- Canvas Area -->
-      <main class="w-full md:w-[60vw] h-[50vh] md:h-full border-b md:border-b-0 md:border-r border-gray-300">
-        <.canvas game_id={@game_id} player_id={@me.id} player_name={@me.name} artist={@current_artist} />
+      <!-- Left: Canvas Section -->
+      <main class="w-full md:w-[60%] h-1/2 md:h-full border-b md:border-b-0 md:border-r border-gray-300 p-4 overflow-auto">
+        <%= if @game_started do %>
+          {game_canvas(assigns)}
+        <% else %>
+          {waiting_room(assigns)}
+        <% end %>
       </main>
 
-    <!-- Sidebar: Players + Chat -->
-      <aside class="w-full md:w-[40vw] max-w-full md:max-w-[40vw] flex flex-col h-full overflow-hidden">
-        <.players_list players={@players} artist={@current_artist} />
-        <.chat_box messages={@streams.messages} />
-      </aside>
-
-    <!-- Game State / Button -->
-      <%= if @game_started do %>
-        <div class="absolute top-4 left-4 bg-green-100 text-green-800 px-3 py-1 rounded shadow">
-          Game started
+    <!-- Right: Players and Chat -->
+      <aside class="w-full md:w-[40%] h-1/2 md:h-full flex flex-col">
+        <!-- Players -->
+        <div class="h-1/2 overflow-auto border-b border-gray-300">
+          <.players_list players={@players} artist={@current_artist} />
         </div>
-      <% else %>
-        <%= if @current_artist == @me.id do %>
-          <button
-            phx-click="start"
-            type="button"
-            class="absolute bottom-4 left-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Start
-          </button>
-        <% end %>
-      <% end %>
+
+    <!-- Chat -->
+        <div class="h-1/2 overflow-auto">
+          <.chat_box messages={@streams.messages} />
+        </div>
+      </aside>
     </div>
     """
   end
