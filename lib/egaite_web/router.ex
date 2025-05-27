@@ -20,10 +20,8 @@ defmodule EgaiteWeb.Router do
 
     live_session :default, on_mount: [EgaiteWeb.InitAssigns] do
       live "/games/:id", GameLive
-      live "/games", GamesListLive
+      live "/", GamesListLive
     end
-
-    get "/", PageController, :home
   end
 
   # Other scopes may use custom stacks.
