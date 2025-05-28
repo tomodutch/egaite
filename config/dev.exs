@@ -26,7 +26,8 @@ config :egaite, EgaiteWeb.Endpoint,
   secret_key_base: "oT1x7Dmsu1sh2Ba2f3Jr+xS07JJfspLGUNwKDkWPErodqzgVOYwSz3Dcbhi1FZ3N",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:egaite, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:egaite, ~w(--watch)]}
+    tailwind: {Tailwind, :install_and_run, [:egaite, ~w(--watch)]},
+    storybook_tailwind: {Tailwind, :install_and_run, [:storybook, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -58,7 +59,8 @@ config :egaite, EgaiteWeb.Endpoint,
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/egaite_web/(controllers|live|components)/.*(ex|heex)$"
+      ~r"lib/egaite_web/(controllers|live|components)/.*(ex|heex)$",
+       ~r"storybook/.*(exs)$"
     ]
   ]
 
@@ -83,3 +85,6 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Enable storybook in development
+config :phoenix_storybook, enabled: true

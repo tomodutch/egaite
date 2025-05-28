@@ -1,5 +1,6 @@
 defmodule EgaiteWeb.Router do
   use EgaiteWeb, :router
+  import PhoenixStorybook.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -15,8 +16,13 @@ defmodule EgaiteWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/" do
+    storybook_assets()
+  end
+
   scope "/", EgaiteWeb do
     pipe_through :browser
+    live_storybook("/storybook", backend_module: EgaiteWeb.Storybook)
 
     live_session :default, on_mount: [EgaiteWeb.InitAssigns] do
       live "/games/:id", GameLive

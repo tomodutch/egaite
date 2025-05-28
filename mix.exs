@@ -58,7 +58,8 @@ defmodule Egaite.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:gen_state_machine, "~> 3.0"}
+      {:gen_state_machine, "~> 3.0"},
+      {:phoenix_storybook, "~> 0.8.0"}
     ]
   end
 
@@ -79,6 +80,7 @@ defmodule Egaite.MixProject do
       "assets.deploy": [
         "tailwind egaite --minify",
         "esbuild egaite --minify",
+        "tailwind storybook --minify",
         "phx.digest"
       ]
     ]
