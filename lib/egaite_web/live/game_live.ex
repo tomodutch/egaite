@@ -1,17 +1,14 @@
 defmodule EgaiteWeb.GameLive do
   use EgaiteWeb, :live_view
   require Logger
-  alias Egaite.Game
+  alias Egaite.{Player, Game, GameSupervisor}
 
   import EgaiteWeb.{
     CanvasComponent,
     WaitingRoomComponent,
-    PlayersListComponent,
-    ChatBoxComponent,
-    RulesComponent,
-    GameHelpers,
     StatusBannerComponent,
-    GameOverComponent
+    GameOverComponent,
+    TabsComponent
   }
 
   @impl true
@@ -37,6 +34,21 @@ defmodule EgaiteWeb.GameLive do
   def handle_event("start", _params, socket) do
     Game.start(socket.assigns.game_id)
     {:noreply, socket}
+  end
+
+  def system_msg(body) do
+    %{id: System.unique_integer([:positive]), body: body, name: "System"}
+  end
+
+  def maybe_start_game(game_id, player) do
+    try do
+      Game.add_player(game_id, %Player{id: player.id, name: player.name})
+      :already_started
+    catch
+      :exit, {:noproc, _} ->
+        {:ok, pid} = GameSupervisor.start_game(game_id, %Player{id: player.id, name: player.name})
+        {:ok, pid}
+    end
   end
 
   @impl true
@@ -192,7 +204,6 @@ defmodule EgaiteWeb.GameLive do
       data-playerId={@me.id}
       class="flex flex-col md:flex-row h-screen bg-white"
     >
-      <!-- Left: Canvas section -->
       <div class="md:w-2/3 w-full md:h-full flex flex-col border-r h-1/2">
         <.game_status_banner
           game_started={@game_started}
@@ -218,39 +229,12 @@ defmodule EgaiteWeb.GameLive do
         </div>
       </div>
 
-    <!-- Right: Tabs section -->
-      <div class="md:w-1/3 w-full md:h-full flex flex-col h-1/2">
-        <!-- Tabs navigation -->
-        <nav class="flex border-b text-sm md:text-base h-12">
-          <!-- fixed height 3rem (12) -->
-          <button phx-click="set_tab" phx-value-tab="chat" class={tab_class(@active_tab, "chat")}>
-            Chat
-          </button>
-          <button
-            phx-click="set_tab"
-            phx-value-tab="players"
-            class={tab_class(@active_tab, "players")}
-          >
-            Players
-          </button>
-          <button phx-click="set_tab" phx-value-tab="rules" class={tab_class(@active_tab, "rules")}>
-            Rules
-          </button>
-        </nav>
-
-    <!-- Tab content -->
-        <div class="flex-1 overflow-auto relative">
-          <div class={"h-full tab-panel " <> if(@active_tab == "chat", do: "block", else: "hidden")}>
-            <.chat_box messages={@streams.messages} />
-          </div>
-          <div class={"h-full tab-panel " <> if(@active_tab == "players", do: "block", else: "hidden")}>
-            <.players_list players={@players} artist={@current_artist} />
-          </div>
-          <div class={"h-full tab-panel " <> if(@active_tab == "rules", do: "block", else: "hidden")}>
-            <.rules />
-          </div>
-        </div>
-      </div>
+      <.tabs_component
+        active_tab={@active_tab}
+        players={@players}
+        current_artist={@current_artist}
+        messages={@streams.messages}
+      />
     </div>
     """
   end
