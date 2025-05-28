@@ -2,7 +2,8 @@ import channelSocket from "../user_socket";
 
 const Drawing = {
     mounted() {
-        const canvas = document.getElementById("drawingCanvas");
+        const canvasId = this.el.dataset.canvasId || "drawingCanvas";
+        const canvas = document.getElementById(canvasId);
         const ctx = canvas.getContext("2d");
 
         // History of all points for redraw on resize
@@ -41,7 +42,6 @@ const Drawing = {
         const playerName = this.el.dataset.playerName;
         const artist = this.el.dataset.artist;
         this.isArtist = artist === playerId;
-
         if (!gameId || !playerId || !playerName) {
             console.error("Missing game or player info for Drawing");
             return;

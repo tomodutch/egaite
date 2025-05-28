@@ -246,6 +246,7 @@ defmodule EgaiteWeb.GameLive do
         <div class="flex-grow overflow-hidden">
           <%= if @game_started do %>
             <.canvas
+              canvas_id="game-canvas"
               game_id={@game_id}
               player_id={@me.id}
               player_name={@me.name}

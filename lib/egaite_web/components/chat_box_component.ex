@@ -1,6 +1,23 @@
 defmodule EgaiteWeb.ChatBoxComponent do
   use Phoenix.Component
 
+  @moduledoc """
+  A UI component rendering a chat box interface.
+
+  This component displays a list of chat messages and an input form to send new messages.
+
+  ## Assigns
+
+    * `:messages` - A list or enumerable of `{id, message}` tuples, where `message` is a map with `:name` and `:body` keys.
+
+  ## Example usage
+
+      <.chat_box messages={@messages} />
+  """
+  attr :messages, :list,
+    required: true,
+    doc: "List of {id, message} tuples where message is a map with :name and :body keys"
+
   def chat_box(assigns) do
     ~H"""
     <section class="flex flex-col h-full p-4 bg-gray-50">
