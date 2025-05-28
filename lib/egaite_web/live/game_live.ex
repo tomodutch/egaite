@@ -1,8 +1,18 @@
 defmodule EgaiteWeb.GameLive do
   use EgaiteWeb, :live_view
   require Logger
-  alias Egaite.{GameSupervisor, Game, Player}
-  import EgaiteWeb.{CanvasComponent, PlayersListComponent, ChatBoxComponent, RulesComponent}
+  alias Egaite.Game
+
+  import EgaiteWeb.{
+    CanvasComponent,
+    WaitingRoomComponent,
+    PlayersListComponent,
+    ChatBoxComponent,
+    RulesComponent,
+    GameHelpers,
+    StatusBannerComponent,
+    GameOverComponent
+  }
 
   @impl true
   def mount(%{"id" => game_id}, _session, socket) do
@@ -148,24 +158,11 @@ defmodule EgaiteWeb.GameLive do
     {:noreply, assign(socket, players: Map.values(players))}
   end
 
-  # Helper Functions
-
   defp maybe_subscribe(socket, game_id) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Egaite.PubSub, "game:#{game_id}")
       Phoenix.PubSub.subscribe(Egaite.PubSub, "chat:#{game_id}")
       Phoenix.PubSub.subscribe(Egaite.PubSub, "game_presence:#{game_id}")
-    end
-  end
-
-  defp maybe_start_game(game_id, player) do
-    try do
-      Game.add_player(game_id, %Player{id: player.id, name: player.name})
-      :already_started
-    catch
-      :exit, {:noproc, _} ->
-        {:ok, pid} = GameSupervisor.start_game(game_id, %Player{id: player.id, name: player.name})
-        {:ok, pid}
     end
   end
 
@@ -176,46 +173,12 @@ defmodule EgaiteWeb.GameLive do
     socket
     |> assign(:game_id, game_id)
     |> assign(:game_started, false)
+    |> assign(:game_over, false)
     |> assign(:players, Map.values(players))
     |> assign(:current_artist, current_artist)
     |> assign(:full_screen, true)
     |> assign(:word, nil)
     |> stream(:messages, [])
-  end
-
-  defp system_msg(body) do
-    %{id: System.unique_integer([:positive]), body: body, name: "System"}
-  end
-
-  defp tab_class(active, current) do
-    base = "w-full text-center py-2 border-b-2"
-
-    if active == current do
-      base <> " border-blue-600 text-blue-600 font-semibold"
-    else
-      base <> " border-transparent text-gray-500 hover:text-gray-700"
-    end
-  end
-
-  defp waiting_room(assigns) do
-    ~H"""
-    <div class="h-full pt-12 flex flex-col justify-center items-center overflow-auto px-4 text-center">
-      <%= if @current_artist == @me.id do %>
-        <.rules />
-        <button
-          phx-click="start"
-          type="button"
-          class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-        >
-          Start Game
-        </button>
-      <% else %>
-        <p class="italic text-lg text-gray-700 max-w-xs mx-auto mt-4">
-          <.rules />
-        </p>
-      <% end %>
-    </div>
-    """
   end
 
   @spec render(map()) :: Phoenix.LiveView.Rendered.t()
@@ -231,30 +194,26 @@ defmodule EgaiteWeb.GameLive do
     >
       <!-- Left: Canvas section -->
       <div class="md:w-2/3 w-full md:h-full flex flex-col border-r h-1/2">
-        <div class="bg-blue-100 border border-blue-500 text-blue-800 font-bold p-2 text-center flex-shrink-0 h-12 sticky top-0 z-10">
-          <%= cond do %>
-            <% !@game_started -> %>
-              Waiting for the artist to start the game...
-            <% @current_artist == @me.id -> %>
-              🎨 Draw: {@word}
-            <% true -> %>
-            Guess in chat!
-          <% end %>
-        </div>
+        <.game_status_banner
+          game_started={@game_started}
+          is_artist={@current_artist == @me.id}
+          word={@word}
+        />
 
-    <!-- Canvas or waiting room fills the rest -->
         <div class="flex-grow overflow-hidden">
-          <%= if @game_started do %>
-            <.canvas
-              canvas_id="game-canvas"
-              game_id={@game_id}
-              player_id={@me.id}
-              player_name={@me.name}
-              artist={@current_artist}
-              class="w-full h-full"
-            />
-          <% else %>
-            {waiting_room(assigns)}
+          <%= case {@game_started, @game_over} do %>
+            <% {true, _} -> %>
+              <.canvas
+                canvas_id="game-canvas"
+                game_id={@game_id}
+                player_id={@me.id}
+                player_name={@me.name}
+                artist={@current_artist}
+              />
+            <% {_, true} -> %>
+              <.game_over />
+            <% _ -> %>
+              <.waiting_room is_artist={@current_artist == @me.id} />
           <% end %>
         </div>
       </div>

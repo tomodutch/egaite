@@ -2,7 +2,7 @@ import channelSocket from "../user_socket";
 
 const Drawing = {
     mounted() {
-        const canvasId = this.el.dataset.canvasId || "drawingCanvas";
+        const canvasId = this.el.id;
         const canvas = document.getElementById(canvasId);
         const ctx = canvas.getContext("2d");
 
