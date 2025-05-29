@@ -24,6 +24,10 @@ defmodule EgaiteWeb.TabsComponent do
     default: [],
     doc: "List of chat messages in the game"
 
+  attr :player_points, :map,
+    default: %{},
+    doc: "Map of player IDs to their points, used to display points next to each player"
+
   def tabs_component(assigns) do
     ~H"""
     <div class="md:w-1/3 w-full md:h-full flex flex-col h-1/2">
@@ -44,7 +48,7 @@ defmodule EgaiteWeb.TabsComponent do
           <.chat_box messages={@messages} />
         </div>
         <div class={"h-full tab-panel " <> if(@active_tab == "players", do: "block", else: "hidden")}>
-          <.players_list players={@players} artist={@current_artist} />
+          <.players_list players={@players} player_points={@player_points}  artist={@current_artist} />
         </div>
         <div class={"h-full tab-panel " <> if(@active_tab == "rules", do: "block", else: "hidden")}>
           <.rules />

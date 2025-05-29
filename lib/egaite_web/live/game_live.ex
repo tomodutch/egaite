@@ -147,7 +147,8 @@ defmodule EgaiteWeb.GameLive do
           "artist_name" => artist_name,
           "current_round" => current_round,
           "max_rounds" => max_rounds,
-          "word_to_draw" => word_to_draw
+          "word_to_draw" => word_to_draw,
+          "player_points" => player_points
         },
         socket
       ) do
@@ -161,6 +162,7 @@ defmodule EgaiteWeb.GameLive do
      |> assign(:game_started, true)
      |> assign(:current_artist, artist)
      |> assign(:word, word_to_draw)
+      |> assign(:player_points, player_points)
      |> stream_insert(:messages, message)}
   end
 
@@ -180,6 +182,7 @@ defmodule EgaiteWeb.GameLive do
 
   defp initialize_socket(socket, game_id, player) do
     {:ok, players} = Game.get_players(game_id)
+    {:ok, player_points} = Game.get_points(game_id)
     current_artist = Game.get_current_artist(game_id)
 
     socket
@@ -190,6 +193,7 @@ defmodule EgaiteWeb.GameLive do
     |> assign(:current_artist, current_artist)
     |> assign(:full_screen, true)
     |> assign(:word, nil)
+    |> assign(:player_points, player_points)
     |> stream(:messages, [])
   end
 
@@ -232,6 +236,7 @@ defmodule EgaiteWeb.GameLive do
       <.tabs_component
         active_tab={@active_tab}
         players={@players}
+        player_points={@player_points}
         current_artist={@current_artist}
         messages={@streams.messages}
       />

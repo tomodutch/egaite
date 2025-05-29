@@ -20,17 +20,29 @@ defmodule EgaiteWeb.PlayersListComponent do
     required: true,
     doc: "The ID of the current artist player, used to highlight the artist in the list"
 
+  attr :player_points, :map,
+    default: %{},
+    doc: "Map of player IDs to their points, used to display points next to each player"
+
   def players_list(assigns) do
     ~H"""
     <section class="flex flex-col p-4 bg-white h-full border-b border-gray-300">
       <h2 class="text-lg font-semibold mb-2">Players</h2>
       <ul class="flex-grow overflow-auto space-y-1">
         <%= for player <- @players do %>
-          <%= if player.id == @artist do %>
-            <li class="text-gray-700">🖌️ {player.name}</li>
-          <% else %>
-            <li class="text-gray-700">{player.name}</li>
-          <% end %>
+          <li class="text-gray-700">
+            <%= if player.id == @artist do %>
+              🖌️ {player.name} -
+              <span class="text-sm text-gray-500">
+                🏆 {Map.get(@player_points, player.id, 0)} points
+              </span>
+            <% else %>
+              {player.name} -
+              <span class="text-sm text-gray-500">
+                🏆 {Map.get(@player_points, player.id, 0)} points
+              </span>
+            <% end %>
+          </li>
         <% end %>
       </ul>
     </section>

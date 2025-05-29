@@ -15,6 +15,11 @@ defmodule EgaiteWeb.PlayersListComponentStory do
             %{id: "2", name: "Bob", score: 20},
             %{id: "3", name: "Charlie", score: 15}
           ],
+          player_points: %{
+            "1" => 10,
+            "2" => 20,
+            "3" => 15
+          },
           artist: "1"
         },
         slots: []

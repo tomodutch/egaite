@@ -1,3 +1,3 @@
 defmodule Egaite.Round do
-  defstruct drawer_id: :none, word: :none, guesses: %{}
+  defstruct round_number: 0, guessed_correctly: MapSet.new()
 end

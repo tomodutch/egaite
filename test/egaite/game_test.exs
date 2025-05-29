@@ -27,10 +27,6 @@ defmodule Egaite.GameTest do
     }
   end
 
-  defp add_player2(%{id: id, player2: player2}) do
-    :ok = Game.add_player(id, player2)
-  end
-
   describe "game lifecycle" do
     test "does not allow duplicate game IDs", %{id: id, player1: player1} do
       assert {:error, {:already_started, _pid}} = Game.start_link(id, player1)
@@ -69,6 +65,21 @@ defmodule Egaite.GameTest do
     test "first player to join becomes the first artist", %{id: id, player1: player1} do
       assert Game.get_current_artist(id) == player1.id
     end
+
+    test "adding player updates points", %{id: id} do
+      new_player = %Player{id: "3"}
+      Game.add_player(id, new_player)
+      {:ok, points} = Game.get_points(id)
+      assert Map.get(points, new_player.id) == 0
+    end
+
+    test "Removing player should not update points", %{id: id} do
+      new_player = %Player{id: "3"}
+      Game.add_player(id, new_player)
+      Game.remove_player(id, new_player.id)
+      {:ok, points} = Game.get_points(id)
+      assert Map.get(points, new_player.id) == 0
+    end
   end
 
   describe "game start events" do
@@ -102,6 +113,18 @@ defmodule Egaite.GameTest do
       {:ok, word} = Game.get_current_word(id)
       assert {:ok, :miss} = Game.guess(id, guesser.id, "animal")
       assert {:ok, :hit} = Game.guess(id, guesser.id, word)
+    end
+
+    test "both guesser and artist get point for correct guess", %{
+      id: id,
+      player1: artist,
+      player2: guesser
+    } do
+      {:ok, word} = Game.get_current_word(id)
+      assert {:ok, :hit} = Game.guess(id, guesser.id, word)
+      artist_id = artist.id
+      guesser_id = guesser.id
+      assert {:ok, %{^guesser_id => 1, ^artist_id => 1}} = Game.get_points(id)
     end
 
     test "round 2 starts with new artist and new word", %{id: id, player2: guesser} do

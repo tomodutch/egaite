@@ -1,14 +1,16 @@
 defmodule Egaite.Game do
   require Logger
-  alias Egaite.{Game, Rules}
+  alias Egaite.{Game, Rules, Round}
   use GenServer
 
   defstruct id: :none,
             players: %{},
             player_order: [],
+            points: Map.new(),
             current_artist: :none,
             word: :none,
-            rules_pid: :none
+            rules_pid: :none,
+            current_round: %Round{round_number: 0, guessed_correctly: MapSet.new()}
 
   ## Public API
 
@@ -39,6 +41,8 @@ defmodule Egaite.Game do
   def get_players(game_id), do: GenServer.call(via_tuple(game_id), :get_players)
   def get_current_artist(game_id), do: GenServer.call(via_tuple(game_id), :get_current_artist)
   def get_current_word(game_id), do: GenServer.call(via_tuple(game_id), :get_current_word)
+  def get_points(game_id), do: GenServer.call(via_tuple(game_id), :get_points)
+
   def start(game_id), do: GenServer.call(via_tuple(game_id), :start)
 
   def guess(game_id, player_id, guess),
@@ -55,7 +59,9 @@ defmodule Egaite.Game do
       player_order: [host_player.id],
       current_artist: host_player.id,
       word: :none,
-      rules_pid: rules_pid
+      rules_pid: rules_pid,
+      points: %{host_player.id => 0},
+      current_round: %Round{round_number: 1, guessed_correctly: MapSet.new()}
     }
 
     {:ok, state}
@@ -89,7 +95,11 @@ defmodule Egaite.Game do
           "artist" => state.current_artist
         })
 
-        {:reply, {:ok, word}, new_state}
+        {:reply, {:ok, word},
+         %{
+           new_state
+           | current_round: %Round{round_number: 1, guessed_correctly: MapSet.new()}
+         }}
 
       {:ok, false} ->
         {:reply, {:error, :not_enough_players}, state}
@@ -112,10 +122,28 @@ defmodule Egaite.Game do
     {:reply, {:error, :artist_can_not_guess}, state}
   end
 
-  def handle_call({:guess, _player_id, guess}, _from, state) do
+  def handle_call({:guess, player_id, guess}, _from, state) do
     if String.downcase(guess) == String.downcase(state.word) do
-      Rules.guessed_correctly(state.rules_pid)
-      {:reply, {:ok, :hit}, state}
+      Logger.info("Player guessed correctly: #{guess}")
+
+      if !MapSet.member?(state.current_round.guessed_correctly, player_id) do
+        new_round = %Round{
+          state.current_round
+          | guessed_correctly: MapSet.put(state.current_round.guessed_correctly, player_id)
+        }
+
+        # When guessed correctly, update points
+        # both artist and guesser get a point
+        new_points =
+          state.points
+          |> Map.update(player_id, 1, &(&1 + 1))
+          |> Map.update(state.current_artist, 1, &(&1 + 1))
+
+        Rules.guessed_correctly(state.rules_pid)
+        {:reply, {:ok, :hit}, %{state | current_round: new_round, points: new_points}}
+      else
+        {:reply, {:ok, :hit}, state}
+      end
     else
       {:reply, {:ok, :miss}, state}
     end
@@ -127,6 +155,7 @@ defmodule Egaite.Game do
     else
       new_players = Map.put(state.players, player.id, player)
       new_order = state.player_order ++ [player.id]
+      new_points = Map.put(state.points, player.id, 0)
       Rules.set_player_count(state.rules_pid, map_size(new_players))
 
       Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
@@ -135,7 +164,7 @@ defmodule Egaite.Game do
         "players" => new_players
       })
 
-      {:reply, :ok, %{state | players: new_players, player_order: new_order}}
+      {:reply, :ok, %{state | players: new_players, player_order: new_order, points: new_points}}
     end
   end
 
@@ -179,6 +208,10 @@ defmodule Egaite.Game do
     {:reply, {:ok, state.word}, state}
   end
 
+  def handle_call(:get_points, _from, state) do
+    {:reply, {:ok, state.points}, state}
+  end
+
   def handle_info(:game_over, state) do
     Logger.info("Game finished.")
 
@@ -197,9 +230,17 @@ defmodule Egaite.Game do
         word = generate_word()
         Rules.start_round(state.rules_pid)
         next_artist = get_next_artist(state.current_artist, state.player_order)
-        new_state = %{state | word: word, current_artist: next_artist}
-
         artist_name = Map.get(state.players, next_artist).name
+
+        new_state = %{
+          state
+          | word: word,
+            current_artist: next_artist,
+            current_round: %Round{
+              round_number: state.current_round.round_number + 1,
+              guessed_correctly: MapSet.new()
+            }
+        }
 
         Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
           "event" => "clear_canvas",
@@ -213,7 +254,8 @@ defmodule Egaite.Game do
           "current_round" => round_num,
           "max_rounds" => max_rounds,
           "artist_name" => artist_name,
-          "word_to_draw" => word
+          "word_to_draw" => word,
+          "player_points" => new_state.points
         })
 
         {:noreply, new_state}
