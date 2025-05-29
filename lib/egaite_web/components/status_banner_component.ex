@@ -1,6 +1,10 @@
 defmodule EgaiteWeb.StatusBannerComponent do
   use Phoenix.Component
 
+  attr :game_ended, :boolean,
+    default: false,
+    doc: "Indicates if the game has ended, used to show the game over banner"
+
   attr :game_started, :boolean,
     required: true,
     doc: "Indicates if the game has started"
@@ -17,6 +21,7 @@ defmodule EgaiteWeb.StatusBannerComponent do
     ~H"""
     <div class="bg-blue-100 border border-blue-500 text-blue-800 font-bold p-2 text-center flex-shrink-0 h-12 sticky top-0 z-10">
       {cond do
+        @game_ended -> "Game Over! Thanks for playing! 🎉"
         !@game_started -> "Waiting for the artist to start the game..."
         @is_artist -> "🎨 Draw: #{@word}"
         true -> "Guess in chat!"

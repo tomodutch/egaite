@@ -111,11 +111,14 @@ defmodule EgaiteWeb.GameLive do
   end
 
   @impl true
-  def handle_info(%{"event" => "game_ended"}, socket) do
+  def handle_info(%{"event" => "game_ended", "points" => points}, socket) do
+    Logger.info("Game ended for #{socket.assigns.game_id}")
     socket =
       socket
       |> assign(:game_started, false)
+      |> assign(:game_over, true)
       |> assign(:current_artist, nil)
+      |> assign(:player_points, points)
       |> stream_insert(:messages, system_msg("The game has ended. Thanks for playing!"))
 
     {:noreply, socket}
@@ -180,7 +183,7 @@ defmodule EgaiteWeb.GameLive do
     end
   end
 
-  defp initialize_socket(socket, game_id, player) do
+  defp initialize_socket(socket, game_id, _player) do
     {:ok, players} = Game.get_players(game_id)
     {:ok, player_points} = Game.get_points(game_id)
     current_artist = Game.get_current_artist(game_id)
@@ -226,7 +229,7 @@ defmodule EgaiteWeb.GameLive do
                 artist={@current_artist}
               />
             <% {_, true} -> %>
-              <.game_over />
+              <.game_over players={@players} points={@player_points} />
             <% _ -> %>
               <.waiting_room is_artist={@current_artist == @me.id} />
           <% end %>

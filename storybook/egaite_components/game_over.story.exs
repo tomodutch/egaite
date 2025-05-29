@@ -8,7 +8,20 @@ defmodule EgaiteWeb.GameOverStory do
     [
       %Variation{
         id: :default,
-        attributes: %{},
+        attributes: %{
+          players: [
+            %{id: "1", name: "Alice"},
+            %{id: "2", name: "Bob"},
+            %{id: "3", name: "Charlie"},
+            %{id: "4", name: "Jane"}
+          ],
+          points: %{
+            "1" => 10,
+            "2" => 20,
+            "3" => 15,
+            "4" => 2
+          }
+        },
         slots: []
       }
     ]

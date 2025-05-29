@@ -4,7 +4,7 @@ defmodule Egaite.Rules do
 
   alias __MODULE__
 
-  defstruct player_count: 0, game_pid: :none, round: 0, max_rounds: 8, guessed_correctly: 0
+  defstruct player_count: 0, game_pid: :none, round: 1, max_rounds: 8, guessed_correctly: 0
 
   # Public API
 
@@ -24,7 +24,7 @@ defmodule Egaite.Rules do
      %Rules{
        player_count: player_count,
        game_pid: game_pid,
-       round: 0,
+       round: 1,
        max_rounds: max_rounds,
        guessed_correctly: 0
      }}
@@ -93,7 +93,7 @@ defmodule Egaite.Rules do
     # Notify game that round ended
     send(data.game_pid, {:round_ended, {data.round, data.max_rounds}})
 
-    if data.round < data.max_rounds do
+    if data.round <= data.max_rounds do
       {:next_state, :ready_to_start, %Rules{data | guessed_correctly: 0}}
     else
       {:next_state, :game_over, data}
@@ -115,7 +115,7 @@ defmodule Egaite.Rules do
     if guessed_correctly >= data.player_count - 1 do
       send(data.game_pid, {:round_ended, {data.round, data.max_rounds}})
 
-      if data.round < data.max_rounds do
+      if data.round <= data.max_rounds do
         {:next_state, :ready_to_start, %Rules{new_data | guessed_correctly: 0}}
       else
         {:next_state, :game_over, data}

@@ -31,6 +31,16 @@ defmodule EgaiteWeb.StatusBannerComponentStory do
           word: "banana"
         },
         slots: []
+      },
+      %Variation{
+        id: :game_over,
+        attributes: %{
+          game_ended: true,
+          game_started: false,
+          is_artist: false,
+          word: "banana"
+        },
+        slots: []
       }
     ]
   end

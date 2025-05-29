@@ -109,7 +109,7 @@ defmodule Egaite.Game do
         {:noreply, state}
 
       {:error, :game_finished} ->
-        Logger.info("Game finished.")
+        Logger.info("Trying to start a game, but game is finished.")
         {:stop, :normal, state}
     end
   end
@@ -269,7 +269,12 @@ defmodule Egaite.Game do
         {:noreply, state}
 
       {:error, :game_finished} ->
-        Logger.info("Game finished.")
+        Logger.info("Can not start new round, game finished.")
+        Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+          "event" => "game_ended",
+          "points" => state.points
+        })
+
         {:stop, :normal, state}
     end
   end
