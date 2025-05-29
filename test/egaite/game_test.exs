@@ -3,13 +3,13 @@ defmodule Egaite.GameTest do
   doctest Egaite.Game
   import Egaite.TestHelpers
 
-  alias Egaite.{Game, Player}
+  alias Egaite.{Game, Player, GameOptions}
 
   setup do
     id = Integer.to_string(:erlang.unique_integer([:positive]))
     player1 = %Player{id: "1"}
     player2 = %Player{id: "2"}
-    {:ok, game_pid} = Game.start_link(id, player1, 2)
+    {:ok, game_pid} = Game.start_link(id, player1, GameOptions.new(max_rounds: 2))
 
     :ok = Phoenix.PubSub.subscribe(Egaite.PubSub, "game:#{id}")
     monitor_ref = Process.monitor(game_pid)
@@ -29,7 +29,7 @@ defmodule Egaite.GameTest do
 
   describe "game lifecycle" do
     test "does not allow duplicate game IDs", %{id: id, player1: player1} do
-      assert {:error, {:already_started, _pid}} = Game.start_link(id, player1)
+      assert {:error, {:already_started, _pid}} = Game.start_link(id, player1, GameOptions.new())
     end
 
     test "game cannot start with fewer than 2 players", %{id: id} do

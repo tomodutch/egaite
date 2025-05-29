@@ -1,6 +1,6 @@
 defmodule Egaite.Game do
   require Logger
-  alias Egaite.{Game, Rules, Round}
+  alias Egaite.{Game, Rules, Round, GameOptions}
   use GenServer
 
   defstruct id: :none,
@@ -14,13 +14,14 @@ defmodule Egaite.Game do
 
   ## Public API
 
-  def start_link({game_id, host_player}), do: start_link(game_id, host_player)
+  def start_link({game_id, host_player, %GameOptions{} = opts}),
+    do: start_link(game_id, host_player, opts)
 
-  def start_link(game_id, host_player, max_rounds \\ 8) do
-    GenServer.start_link(__MODULE__, {game_id, host_player, max_rounds}, name: via_tuple(game_id))
+  def start_link(game_id, host_player, %GameOptions{} = opts) do
+    GenServer.start_link(__MODULE__, {game_id, host_player, opts}, name: via_tuple(game_id))
   end
 
-  def child_spec({game_id, _host_player} = args) do
+  def child_spec({game_id, _host_player, opts} = args) do
     %{
       id: {:game, game_id},
       start: {__MODULE__, :start_link, [args]},
@@ -50,8 +51,8 @@ defmodule Egaite.Game do
 
   ## GenServer Callbacks
 
-  def init({game_id, host_player, max_rounds}) do
-    {:ok, rules_pid} = Rules.start_link(1, self(), max_rounds)
+  def init({game_id, host_player, %GameOptions{} = opts}) do
+    {:ok, rules_pid} = Rules.start_link(1, self(), opts.max_rounds)
 
     state = %Game{
       id: game_id,
@@ -270,6 +271,7 @@ defmodule Egaite.Game do
 
       {:error, :game_finished} ->
         Logger.info("Can not start new round, game finished.")
+
         Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
           "event" => "game_ended",
           "points" => state.points

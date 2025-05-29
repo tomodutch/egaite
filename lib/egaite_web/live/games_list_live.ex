@@ -19,9 +19,7 @@ defmodule EgaiteWeb.GamesListLive do
   end
 
   def handle_event("new_game", _unsigned_params, socket) do
-    game_id = Ecto.UUID.generate()
-    GameSupervisor.start_game(game_id, socket.assigns.me)
-    {:noreply, push_navigate(socket, to: ~p(/games/#{game_id}))}
+    {:noreply, push_navigate(socket, to: ~p(/games/create))}
   end
 
   def handle_event("join", %{"id" => game_id}, socket) do

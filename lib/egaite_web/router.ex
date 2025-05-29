@@ -25,6 +25,8 @@ defmodule EgaiteWeb.Router do
     live_storybook("/storybook", backend_module: EgaiteWeb.Storybook)
 
     live_session :default, on_mount: [EgaiteWeb.InitAssigns] do
+      live "/games/create", GameCreateLive
+      live "/games/not-found", GameNotFoundLive
       live "/games/:id", GameLive
       live "/", GamesListLive
     end

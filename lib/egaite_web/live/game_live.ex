@@ -16,13 +16,14 @@ defmodule EgaiteWeb.GameLive do
     maybe_subscribe(socket, game_id)
 
     case maybe_start_game(game_id, socket.assigns.me) do
-      {:ok, _pid} -> :ok
-      :already_started -> :ok
-    end
+      :ok ->
+        {:ok,
+         initialize_socket(socket, game_id, socket.assigns.me)
+         |> assign(:active_tab, "chat")}
 
-    {:ok,
-     initialize_socket(socket, game_id, socket.assigns.me)
-     |> assign(:active_tab, "chat")}
+      {:error, :not_found} ->
+        {:ok, push_navigate(socket, to: ~p(/games/not-found))}
+    end
   end
 
   @impl true
@@ -41,13 +42,13 @@ defmodule EgaiteWeb.GameLive do
   end
 
   def maybe_start_game(game_id, player) do
-    try do
-      Game.add_player(game_id, %Player{id: player.id, name: player.name})
-      :already_started
-    catch
-      :exit, {:noproc, _} ->
-        {:ok, pid} = GameSupervisor.start_game(game_id, %Player{id: player.id, name: player.name})
-        {:ok, pid}
+    case Registry.lookup(Egaite.GameRegistry, game_id) do
+      [] ->
+        {:error, :not_found}
+
+      [{_pid, _}] ->
+        Game.add_player(game_id, %Player{id: player.id, name: player.name})
+        :ok
     end
   end
 
@@ -113,6 +114,7 @@ defmodule EgaiteWeb.GameLive do
   @impl true
   def handle_info(%{"event" => "game_ended", "points" => points}, socket) do
     Logger.info("Game ended for #{socket.assigns.game_id}")
+
     socket =
       socket
       |> assign(:game_started, false)
@@ -165,7 +167,7 @@ defmodule EgaiteWeb.GameLive do
      |> assign(:game_started, true)
      |> assign(:current_artist, artist)
      |> assign(:word, word_to_draw)
-      |> assign(:player_points, player_points)
+     |> assign(:player_points, player_points)
      |> stream_insert(:messages, message)}
   end
 
