@@ -1,27 +1,24 @@
 defmodule EgaiteWeb.GamePresenceChannelTest do
   use EgaiteWeb.ChannelCase
+  import Egaite.TestHelpers
 
   setup do
+    topic = "game_presence:1"
+
     {:ok, _, socket} =
       EgaiteWeb.UserSocket
-      |> socket("user_id", %{some: :assign})
-      |> subscribe_and_join(EgaiteWeb.GamePresenceChannel, "game_presence:lobby")
+      |> socket("socket", %{})
+      |> subscribe_and_join(EgaiteWeb.GamePresenceChannel, topic, %{
+        "player_id" => "1"
+      })
 
-    %{socket: socket}
+    %{socket: socket, topic: topic}
   end
 
-  test "ping replies with status ok", %{socket: socket} do
-    ref = push(socket, "ping", %{"hello" => "there"})
-    assert_reply ref, :ok, %{"hello" => "there"}
-  end
-
-  test "shout broadcasts to game_presence:lobby", %{socket: socket} do
-    push(socket, "shout", %{"hello" => "all"})
-    assert_broadcast "shout", %{"hello" => "all"}
-  end
-
-  test "broadcasts are pushed to the client", %{socket: socket} do
-    broadcast_from!(socket, "broadcast", %{"some" => "data"})
-    assert_push "broadcast", %{"some" => "data"}
+  test "presence list is updated on join", %{topic: topic} do
+    assert_eventually do
+      presences = EgaiteWeb.Presence.list(topic)
+      map_size(presences) == 1
+    end
   end
 end

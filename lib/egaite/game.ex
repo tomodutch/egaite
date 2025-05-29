@@ -1,6 +1,5 @@
 defmodule Egaite.Game do
   require Logger
-  alias ElixirSense.Log
   alias Egaite.{Game, Rules}
   use GenServer
 
@@ -39,6 +38,7 @@ defmodule Egaite.Game do
 
   def get_players(game_id), do: GenServer.call(via_tuple(game_id), :get_players)
   def get_current_artist(game_id), do: GenServer.call(via_tuple(game_id), :get_current_artist)
+  def get_current_word(game_id), do: GenServer.call(via_tuple(game_id), :get_current_word)
   def start(game_id), do: GenServer.call(via_tuple(game_id), :start)
 
   def guess(game_id, player_id, guess),
@@ -173,6 +173,10 @@ defmodule Egaite.Game do
       end
 
     {:reply, current_artist, state}
+  end
+
+  def handle_call(:get_current_word, _from, state) do
+    {:reply, {:ok, state.word}, state}
   end
 
   def handle_info(:game_over, state) do
