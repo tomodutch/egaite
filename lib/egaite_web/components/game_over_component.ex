@@ -20,7 +20,11 @@ defmodule EgaiteWeb.GameOverComponent do
       )
 
     ~H"""
-    <div class="flex flex-col justify-center items-center h-full text-center p-4">
+    <div
+      class="flex flex-col justify-center items-center h-full text-center p-4"
+      id="gameOver"
+      phx-hook="ConfettiOnMount"
+    >
       <h2 class="text-2xl font-bold text-gray-800 mb-4">Game Over 🎉</h2>
       <p class="text-gray-600 mb-4">
         Thanks for playing!
@@ -33,7 +37,14 @@ defmodule EgaiteWeb.GameOverComponent do
           <% end %>
         </ol>
       </p>
-      <a href="/" class="text-blue-600 hover:underline">Return to lobby</a>
+      <button
+        type="button"
+        data-confetti-button
+        class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+      >
+        🎉 Launch more confetti 🎉
+      </button>
+      <a href="/" class="text-blue-600 hover:underline">Or return to the lobby</a>
     </div>
     """
   end

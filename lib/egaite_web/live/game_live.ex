@@ -213,6 +213,7 @@ defmodule EgaiteWeb.GameLive do
     >
       <div class="md:w-2/3 w-full md:h-full flex flex-col border-r h-1/2">
         <.game_status_banner
+          game_ended={@game_over}
           game_started={@game_started}
           is_artist={@current_artist == @me.id}
           word={@word}
