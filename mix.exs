@@ -59,7 +59,8 @@ defmodule Egaite.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:gen_state_machine, "~> 3.0"},
-      {:phoenix_storybook, "~> 0.8.0"}
+      {:phoenix_storybook, "~> 0.8.0"},
+      {:levenshtein, "~> 0.3.0"}
     ]
   end
 

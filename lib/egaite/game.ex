@@ -1,6 +1,6 @@
 defmodule Egaite.Game do
   require Logger
-  alias Egaite.{Game, Rules, Round, GameOptions}
+  alias Egaite.{Game, Rules, Round, GameOptions, FuzzyMatcher}
   use GenServer
 
   defstruct id: :none,
@@ -124,7 +124,9 @@ defmodule Egaite.Game do
   end
 
   def handle_call({:guess, player_id, guess}, _from, state) do
-    if String.downcase(guess) == String.downcase(state.word) do
+    Logger.info("Player #{player_id} guessed: #{guess}")
+
+    if FuzzyMatcher.word_in_sentence?(state.word, guess) do
       Logger.info("Player guessed correctly: #{guess}")
 
       if !MapSet.member?(state.current_round.guessed_correctly, player_id) do
