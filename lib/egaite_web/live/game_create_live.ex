@@ -8,7 +8,8 @@ defmodule EgaiteWeb.GameCreateLive do
         %GameForm{
           nickname: socket.assigns.me.name,
           game_name: "New Game",
-          rounds: 4
+          rounds: 4,
+          bot_count: 0
         },
         %{}
       )
@@ -35,7 +36,8 @@ defmodule EgaiteWeb.GameCreateLive do
         GameSupervisor.start_game(game_id, player, %GameOptions{
           game_name: game_params["game_name"],
           max_players: 8,
-          max_rounds: String.to_integer(game_params["rounds"])
+          max_rounds: String.to_integer(game_params["rounds"]),
+          bot_count: String.to_integer(game_params["bot_count"])
         })
 
       {:noreply,
@@ -59,8 +61,8 @@ defmodule EgaiteWeb.GameCreateLive do
         <.form for={@form} phx-submit="create_game" class="space-y-6">
           <.input field={@form[:nickname]} type="text" label="Nickname" />
           <.input field={@form[:game_name]} type="text" label="Game Name" />
-          <.input field={@form[:rounds]} type="number" label="Number of Rounds" min="1" max="20" />
-
+          <.input field={@form[:rounds]} type="number" label="Number of Rounds" min="1" max="10" />
+          <.input field={@form[:bot_count]} type="number" label="Number of bots" min="0" max="10" />
           <.button>
             🚀 Start Game
           </.button>

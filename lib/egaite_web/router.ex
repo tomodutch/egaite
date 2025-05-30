@@ -59,7 +59,7 @@ defmodule EgaiteWeb.Router do
       nil ->
         player = %{
           "id" => Ecto.UUID.generate(),
-          "name" => random_name()
+          "name" => Egaite.NameGenerator.generate_name()
         }
 
         put_session(conn, "player", player)
@@ -67,11 +67,5 @@ defmodule EgaiteWeb.Router do
       _existing ->
         conn
     end
-  end
-
-  defp random_name do
-    adjectives = ["Swift", "Clever", "Brave", "Witty", "Mighty", "Sneaky"]
-    animals = ["Fox", "Tiger", "Owl", "Bear", "Eagle", "Panther"]
-    "#{Enum.random(adjectives)}#{Enum.random(animals)}"
   end
 end

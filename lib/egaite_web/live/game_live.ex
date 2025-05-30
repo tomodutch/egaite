@@ -53,6 +53,17 @@ defmodule EgaiteWeb.GameLive do
   end
 
   @impl true
+  def handle_info(
+        %{
+          "event" => "player_guessed_correctly",
+          "player_name" => player_name
+        },
+        socket
+      ) do
+    {:noreply, socket |> stream_insert(:messages, system_msg("#{player_name} guessed the word!"))}
+  end
+
+  @impl true
   def handle_event("send_message", %{"body" => body}, socket) do
     trimmed = String.trim(body)
 
@@ -69,18 +80,8 @@ defmodule EgaiteWeb.GameLive do
         {:new_message, msg}
       )
 
-      reply_socket =
-        case Game.guess(socket.assigns.game_id, socket.assigns.me.id, trimmed) do
-          {:ok, :hit} ->
-            socket
-            |> stream_insert(:messages, system_msg("#{msg.name} guessed the word!"))
-            |> stream_insert(:messages, msg)
-
-          _ ->
-            stream_insert(socket, :messages, msg)
-        end
-
-      {:noreply, reply_socket}
+      Game.guess(socket.assigns.game_id, socket.assigns.me.id, trimmed)
+      {:noreply, stream_insert(socket, :messages, msg)}
     else
       {:noreply, socket}
     end

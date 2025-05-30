@@ -43,7 +43,7 @@ defmodule Egaite.Rules do
     {:keep_state_and_data, [{:reply, from, {:ok, false}}]}
   end
 
-  def waiting_for_players(:cast, :start_round, data), do: {:keep_state_and_data, data}
+  def waiting_for_players(:cast, :start_round, data), do: {:keep_state, data}
 
   def waiting_for_players(:cast, {:set_player_count, 0}, data),
     do: {:next_state, :game_over, %{data | player_count: 0}}

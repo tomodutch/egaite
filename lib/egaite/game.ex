@@ -10,6 +10,7 @@ defmodule Egaite.Game do
             current_artist: :none,
             word: :none,
             rules_pid: :none,
+            bot_supervisor_pid: :none,
             current_round: %Round{round_number: 0, guessed_correctly: MapSet.new()}
 
   ## Public API
@@ -23,7 +24,7 @@ defmodule Egaite.Game do
 
   def child_spec({game_id, _host_player, opts} = args) do
     %{
-      id: {:game, game_id},
+      id: {:game, game_id, opts},
       start: {__MODULE__, :start_link, [args]},
       restart: :transient,
       type: :worker
@@ -52,6 +53,22 @@ defmodule Egaite.Game do
   ## GenServer Callbacks
 
   def init({game_id, host_player, %GameOptions{} = opts}) do
+    {:ok, bot_supervisor_pid} = DynamicSupervisor.start_link(strategy: :one_for_one)
+
+    if opts.bot_count > 0 do
+      for _ <- 1..opts.bot_count do
+        bot_player = %Egaite.Player{
+          id: Ecto.UUID.generate(),
+          name: "🤖 " <> Egaite.NameGenerator.generate_name()
+        }
+
+        DynamicSupervisor.start_child(
+          bot_supervisor_pid,
+          {Egaite.GameBot, {game_id, bot_player, [speed: :slow, difficulty: :easy]}}
+        )
+      end
+    end
+
     {:ok, rules_pid} = Rules.start_link(1, self(), opts.max_rounds)
 
     state = %Game{
@@ -61,6 +78,7 @@ defmodule Egaite.Game do
       current_artist: host_player.id,
       word: :none,
       rules_pid: rules_pid,
+      bot_supervisor_pid: bot_supervisor_pid,
       points: %{host_player.id => 0},
       current_round: %Round{round_number: 1, guessed_correctly: MapSet.new()}
     }
@@ -128,6 +146,12 @@ defmodule Egaite.Game do
 
     if FuzzyMatcher.word_in_sentence?(state.word, guess) do
       Logger.info("Player guessed correctly: #{guess}")
+
+      Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+        "event" => "player_guessed_correctly",
+        "player_id" => player_id,
+        "player_name" => Map.get(state.players, player_id).name
+      })
 
       if !MapSet.member?(state.current_round.guessed_correctly, player_id) do
         new_round = %Round{
@@ -245,8 +269,9 @@ defmodule Egaite.Game do
             }
         }
 
-        Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
-          "event" => "clear_canvas",
+        Logger.info("Starting new round with artist: #{artist_name}. Clearing canvas.")
+
+        EgaiteWeb.Endpoint.broadcast("drawing:#{state.id}", "clear_canvas", %{
           "artist" => next_artist,
           "artist_name" => artist_name
         })

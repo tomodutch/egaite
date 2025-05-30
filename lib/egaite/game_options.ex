@@ -5,7 +5,8 @@ defmodule Egaite.GameOptions do
   defstruct game_name: "",
             max_players: 4,
             min_players: 2,
-            max_rounds: 10
+            max_rounds: 10,
+            bot_count: 0
 
   @type t :: %__MODULE__{
           game_name: String.t(),

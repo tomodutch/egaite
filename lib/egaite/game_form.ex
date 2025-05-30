@@ -7,6 +7,7 @@ defmodule Egaite.GameForm do
     field :nickname, :string
     field :game_name, :string
     field :rounds, :integer
+    field :bot_count , :integer, default: 0
   end
 
   @doc false
@@ -15,5 +16,6 @@ defmodule Egaite.GameForm do
     |> cast(attrs, [:nickname, :game_name, :rounds])
     |> validate_required([:nickname, :game_name, :rounds])
     |> validate_number(:rounds, greater_than_or_equal_to: 1, less_than_or_equal_to: 10)
+    |> validate_number(:bot_count, greater_than_or_equal_to: 0, less_than_or_equal_to: 10)
   end
 end
