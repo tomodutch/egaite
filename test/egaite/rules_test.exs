@@ -23,7 +23,8 @@ defmodule Egaite.RulesTest do
   test "game loop" do
     {:ok, game_pid} = Game.start_link("game", %Player{id: "1"}, %GameOptions{max_rounds: 8})
     {:ok, pid} = Rules.start_link(3, game_pid)
-    assert :ok = Rules.start_round(pid)
+    assert {:ok, true} = Rules.ready_to_start?(pid)
+    assert {:ok, 1, 8} = Rules.start_round(pid)
   end
 
   test "stop game when 0 players" do

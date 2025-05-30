@@ -145,6 +145,24 @@ defmodule EgaiteWeb.GameLive do
     {:noreply, socket}
   end
 
+  def handle_info(
+        %{
+          "event" => "round_ended",
+          "current_round" => _round_number,
+          "max_rounds" => _max_rounds,
+          "next_artist" => _next_artist,
+          "player_points" => points
+        },
+        socket
+      ) do
+    socket =
+      socket
+      |> assign(:player_points, points)
+      |> stream_insert(:messages, system_msg("The round has ended!"))
+
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info(
         %{

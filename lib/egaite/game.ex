@@ -11,7 +11,8 @@ defmodule Egaite.Game do
             word: :none,
             rules_pid: :none,
             bot_supervisor_pid: :none,
-            current_round: %Round{round_number: 0, guessed_correctly: MapSet.new()}
+            round_duration: :none,
+            break_duration: :none
 
   ## Public API
 
@@ -80,7 +81,8 @@ defmodule Egaite.Game do
       rules_pid: rules_pid,
       bot_supervisor_pid: bot_supervisor_pid,
       points: %{host_player.id => 0},
-      current_round: %Round{round_number: 1, guessed_correctly: MapSet.new()}
+      round_duration: opts.round_duration,
+      break_duration: opts.break_duration
     }
 
     {:ok, state}
@@ -96,41 +98,70 @@ defmodule Egaite.Game do
     {:reply, resp, state}
   end
 
+  def handle_info(:start, state) do
+    case do_start(state) do
+      {:ok, new_state} ->
+        {:noreply, new_state}
+
+      {:retry, new_state} ->
+        Process.send_after(self(), :start, 5_000)
+        {:noreply, new_state}
+
+      {:error, reason, new_state} ->
+        Logger.warning("Failed to start: #{inspect(reason)}")
+        {:noreply, new_state}
+    end
+  end
+
   def handle_call(:start, _from, state) do
+    case do_start(state) do
+      {:ok, new_state} -> {:reply, {:ok, new_state.word}, new_state}
+      {:retry, new_state} -> {:reply, {:error, :not_enough_players}, new_state}
+      {:error, reason, new_state} -> {:reply, {:error, reason}, new_state}
+    end
+  end
+
+  defp do_start(state) do
     case Rules.ready_to_start?(state.rules_pid) do
       {:ok, true} ->
         word = generate_word()
-        Rules.start_round(state.rules_pid)
         new_state = %{state | word: word}
+        artist_name = Map.get(state.players, state.current_artist).name
+        {:ok, round_number, max_rounds} = Rules.start_round(state.rules_pid)
+
+        Logger.info("Starting round with artist: #{artist_name}. Clearing canvas.")
+
+        EgaiteWeb.Endpoint.broadcast("drawing:#{state.id}", "clear_canvas", %{
+          "artist" => state.current_artist,
+          "artist_name" => artist_name
+        })
 
         Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
-          "event" => "game_started",
+          "event" => "round_started",
           "artist" => state.current_artist,
-          "word_to_draw" => word
+          "current_round" => round_number,
+          "max_rounds" => max_rounds,
+          "artist_name" => artist_name,
+          "word_to_draw" => word,
+          "player_points" => new_state.points
         })
 
-        Phoenix.PubSub.broadcast(Egaite.PubSub, "drawing:#{state.id}", %{
-          "event" => "clear_canvas",
-          "artist" => state.current_artist
-        })
+        Process.send_after(self(), {:end_round, round_number}, state.round_duration)
 
-        {:reply, {:ok, word},
-         %{
-           new_state
-           | current_round: %Round{round_number: 1, guessed_correctly: MapSet.new()}
-         }}
+        {:ok, new_state}
 
       {:ok, false} ->
-        {:reply, {:error, :not_enough_players}, state}
+        {:retry, state}
 
-      {:error, :game_in_progress} ->
-        Logger.info("Game in progress.")
-        {:noreply, state}
-
-      {:error, :game_finished} ->
-        Logger.info("Trying to start a game, but game is finished.")
-        {:stop, :normal, state}
+      {:error, reason} ->
+        {:error, reason, state}
     end
+  end
+
+  @impl true
+  def handle_info({:end_round, round_number}, state) do
+    Rules.end_round(state.rules_pid, round_number)
+    {:noreply, state}
   end
 
   def handle_call({:guess, _player_id, _guess}, _from, %Game{word: :none} = state) do
@@ -147,29 +178,26 @@ defmodule Egaite.Game do
     if FuzzyMatcher.word_in_sentence?(state.word, guess) do
       Logger.info("Player guessed correctly: #{guess}")
 
-      Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
-        "event" => "player_guessed_correctly",
-        "player_id" => player_id,
-        "player_name" => Map.get(state.players, player_id).name
-      })
+      case Rules.guessed_correctly(state.rules_pid, player_id) do
+        {:error, :player_already_guessed} ->
+          {:reply, {:error, :already_guessed}, state}
 
-      if !MapSet.member?(state.current_round.guessed_correctly, player_id) do
-        new_round = %Round{
-          state.current_round
-          | guessed_correctly: MapSet.put(state.current_round.guessed_correctly, player_id)
-        }
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
 
-        # When guessed correctly, update points
-        # both artist and guesser get a point
-        new_points =
-          state.points
-          |> Map.update(player_id, 1, &(&1 + 1))
-          |> Map.update(state.current_artist, 1, &(&1 + 1))
+        {:ok, true} ->
+          Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+            "event" => "player_guessed_correctly",
+            "player_id" => player_id,
+            "player_name" => Map.get(state.players, player_id).name
+          })
 
-        Rules.guessed_correctly(state.rules_pid)
-        {:reply, {:ok, :hit}, %{state | current_round: new_round, points: new_points}}
-      else
-        {:reply, {:ok, :hit}, state}
+          updated_points =
+            state.points
+            |> Map.update(player_id, 1, &(&1 + 1))
+            |> Map.update(state.current_artist, 1, &(&1 + 1))
+
+          {:reply, {:ok, :hit}, %{state | points: updated_points}}
       end
     else
       {:reply, {:ok, :miss}, state}
@@ -243,7 +271,8 @@ defmodule Egaite.Game do
     Logger.info("Game finished.")
 
     Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
-      "event" => "game_ended"
+      "event" => "game_ended",
+      "points" => state.points
     })
 
     {:stop, :normal, state}
@@ -251,61 +280,23 @@ defmodule Egaite.Game do
 
   def handle_info({:round_ended, {round_num, max_rounds}}, state) do
     Logger.info("Round #{round_num}/#{max_rounds} ended.")
+    next_artist = get_next_artist(state.current_artist, state.player_order)
+    Process.send_after(self(), :start, state.break_duration)
 
-    case Rules.ready_to_start?(state.rules_pid) do
-      {:ok, true} ->
-        word = generate_word()
-        Rules.start_round(state.rules_pid)
-        next_artist = get_next_artist(state.current_artist, state.player_order)
-        artist_name = Map.get(state.players, next_artist).name
+    Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
+      "event" => "round_ended",
+      "current_round" => round_num,
+      "max_rounds" => max_rounds,
+      "next_artist" => next_artist,
+      "player_points" => state.points
+    })
 
-        new_state = %{
-          state
-          | word: word,
-            current_artist: next_artist,
-            current_round: %Round{
-              round_number: state.current_round.round_number + 1,
-              guessed_correctly: MapSet.new()
-            }
-        }
+    new_state = %{
+      state
+      | current_artist: next_artist
+    }
 
-        Logger.info("Starting new round with artist: #{artist_name}. Clearing canvas.")
-
-        EgaiteWeb.Endpoint.broadcast("drawing:#{state.id}", "clear_canvas", %{
-          "artist" => next_artist,
-          "artist_name" => artist_name
-        })
-
-        Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
-          "event" => "round_started",
-          "artist" => next_artist,
-          "current_round" => round_num,
-          "max_rounds" => max_rounds,
-          "artist_name" => artist_name,
-          "word_to_draw" => word,
-          "player_points" => new_state.points
-        })
-
-        {:noreply, new_state}
-
-      {:ok, false} ->
-        Logger.info("Not enough players. Waiting...")
-        {:noreply, state}
-
-      {:error, :game_in_progress} ->
-        Logger.info("Game in progress.")
-        {:noreply, state}
-
-      {:error, :game_finished} ->
-        Logger.info("Can not start new round, game finished.")
-
-        Phoenix.PubSub.broadcast(Egaite.PubSub, "game:#{state.id}", %{
-          "event" => "game_ended",
-          "points" => state.points
-        })
-
-        {:stop, :normal, state}
-    end
+    {:noreply, new_state}
   end
 
   ## Private

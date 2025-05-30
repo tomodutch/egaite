@@ -9,7 +9,9 @@ defmodule Egaite.GameTest do
     id = Integer.to_string(:erlang.unique_integer([:positive]))
     player1 = %Player{id: "1"}
     player2 = %Player{id: "2"}
-    {:ok, game_pid} = Game.start_link(id, player1, GameOptions.new(max_rounds: 2))
+
+    {:ok, game_pid} =
+      Game.start_link(id, player1, GameOptions.new(max_rounds: 2, break_duration: 0))
 
     :ok = Phoenix.PubSub.subscribe(Egaite.PubSub, "game:#{id}")
     monitor_ref = Process.monitor(game_pid)
@@ -88,11 +90,11 @@ defmodule Egaite.GameTest do
       :ok
     end
 
-    test "game starts and sends game_started event", %{id: id} do
+    test "game starts and sends round_started event", %{id: id} do
       {:ok, word} = Game.start(id)
 
       assert_eventually do
-        assert_receive %{"event" => "game_started", "artist" => _, "word_to_draw" => ^word}
+        assert_receive %{"event" => "round_started", "artist" => _, "word_to_draw" => ^word}
       end
     end
   end
@@ -133,11 +135,12 @@ defmodule Egaite.GameTest do
 
       assert_eventually do
         assert_receive %{
-          "event" => "round_started",
-          "word_to_draw" => new_word
+          "event" => "round_ended"
         }
+      end
 
-        refute old_word == new_word
+      assert_eventually do
+        refute {:ok, old_word} == Game.get_current_word(id)
       end
     end
 
@@ -149,12 +152,21 @@ defmodule Egaite.GameTest do
       {:ok, old_word} = Game.get_current_word(id)
       {:ok, :hit} = Game.guess(id, player2.id, old_word)
 
-      new_word =
-        assert_eventually do
-          assert_receive %{"event" => "round_started", "word_to_draw" => word}
-          word
-        end
+      assert_eventually do
+        assert_receive %{"event" => "player_guessed_correctly"}
+      end
 
+      assert_eventually do
+        assert_receive %{
+          "event" => "round_ended"
+        }
+      end
+
+      assert_eventually do
+        refute {:ok, old_word} == Game.get_current_word(id)
+      end
+
+      {:ok, new_word} = Game.get_current_word(id)
       assert {:error, :artist_can_not_guess} = Game.guess(id, player2.id, new_word)
       assert {:ok, :miss} = Game.guess(id, player1.id, "animal")
       assert {:ok, :hit} = Game.guess(id, player1.id, new_word)
@@ -173,7 +185,7 @@ defmodule Egaite.GameTest do
       {:ok, word} = Game.start(id)
 
       assert_eventually do
-        assert_receive %{"event" => "game_started", "artist" => _, "word_to_draw" => ^word}
+        assert_receive %{"event" => "round_started", "artist" => _, "word_to_draw" => ^word}
       end
 
       # Round 1: artist is player1
