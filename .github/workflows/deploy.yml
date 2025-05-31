@@ -1,0 +1,87 @@
+name: Test and Deploy Phoenix App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cancel_previous_runs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Workflow Runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:17.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: phoenix_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres" 
+          --health-interval=10s 
+          --health-timeout=5s 
+          --health-retries=5
+
+    env:
+      MIX_ENV: test
+      DATABASE_URL: ecto://postgres:postgres@localhost/phoenix_test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.14.5'
+          otp-version: '25.3.2'
+
+      - name: Install dependencies
+        run: |
+          mix deps.get
+          mix deps.compile
+
+      - name: Setup database
+        run: |
+          mix ecto.create
+          mix ecto.migrate
+
+      - name: Run tests
+        run: mix test
+
+  deploy:
+    runs-on: [self-hosted]
+    needs: test
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      POOL_SIZE: ${{ secrets.POOL_SIZE }}
+      SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+      PHX_HOST: ${{ secrets.PHX_HOST }}
+      PORT: ${{ secrets.PORT }}
+      DNS_CLUSTER_QUERY: ${{ secrets.DNS_CLUSTER_QUERY }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker compose -f docker-compose.prod.yml build --no-cache
+
+      - name: Start new containers
+        run: docker compose up -f docker-compose.prod.yml -d --build --remove-orphans
+      - name: Clean up Docker
+        run: |
+          docker system prune -af
