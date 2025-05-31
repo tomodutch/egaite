@@ -1,7 +1,6 @@
 defmodule Egaite.Release do
   @moduledoc """
-  Used for executing DB release tasks when run in production without Mix
-  installed.
+  Used for executing DB release tasks when run in production without Mix installed.
   """
   @app :egaite
 
@@ -14,7 +13,8 @@ defmodule Egaite.Release do
   end
 
   def seed do
-    load_app()
+    # Load and start the app and all necessary dependencies (including Repo)
+    {:ok, _} = Application.ensure_all_started(@app)
 
     for repo <- repos() do
       seed_file = seed_path(repo)
@@ -42,13 +42,7 @@ defmodule Egaite.Release do
     Application.load(@app)
   end
 
-  defp seed_path(repo), do: Path.join(priv_path(repo), "seeds.exs")
-
-  defp priv_path(repo) do
-    repo
-    |> Module.split()
-    |> List.first()
-    |> Macro.underscore()
-    |> (fn path -> Application.app_dir(@app, "priv/#{path}/repo") end).()
+  defp seed_path(_repo) do
+    Path.join(Application.app_dir(@app, "priv/repo"), "seeds.exs")
   end
 end
