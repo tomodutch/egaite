@@ -80,10 +80,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Build Docker image
-        run: docker compose -f docker-compose.prod.yml build --no-cache
+        run: docker compose -f docker-compose.prod.yml build
 
       - name: Start new containers
-        run: docker compose up -f docker-compose.prod.yml -d --build --remove-orphans
+        run: docker compose up --file docker-compose.prod.yml -d --build --remove-orphans
       - name: Clean up Docker
         run: |
           docker system prune -af
