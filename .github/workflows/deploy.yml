@@ -81,9 +81,13 @@ jobs:
 
       - name: Build Docker image
         run: docker compose -f docker-compose.prod.yml build
+        
+      - name: Run DB migrations
+        run: docker compose --file docker-compose.prod.yml run --rm egaite_web ./bin/migrate
 
       - name: Start new containers
         run: docker compose --file docker-compose.prod.yml up -d --build --remove-orphans
+
       - name: Clean up Docker
         run: |
           docker system prune -af
