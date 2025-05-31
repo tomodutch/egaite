@@ -19,7 +19,7 @@ services:
   nginx:
     image: nginx:latest
     ports:
-      - "2052:80"          # bind host port 2052 to nginx port 80. This is the port cloudflare will access the app from.
+      - "8082:80"
     depends_on:
       - egaite_web
     volumes:
