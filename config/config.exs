@@ -9,7 +9,7 @@ import Config
 
 config :egaite,
   ecto_repos: [Egaite.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime, binary_id: true]
 
 # Configures the endpoint
 config :egaite, EgaiteWeb.Endpoint,

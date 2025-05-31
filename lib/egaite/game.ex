@@ -12,7 +12,8 @@ defmodule Egaite.Game do
             rules_pid: :none,
             bot_supervisor_pid: :none,
             round_duration: :none,
-            break_duration: :none
+            break_duration: :none,
+            prompts: []
 
   ## Public API
 
@@ -82,7 +83,8 @@ defmodule Egaite.Game do
       bot_supervisor_pid: bot_supervisor_pid,
       points: %{host_player.id => 0},
       round_duration: opts.round_duration,
-      break_duration: opts.break_duration
+      break_duration: opts.break_duration,
+      prompts: opts.prompts
     }
 
     {:ok, state}
@@ -124,7 +126,7 @@ defmodule Egaite.Game do
   defp do_start(state) do
     case Rules.ready_to_start?(state.rules_pid) do
       {:ok, true} ->
-        word = generate_word()
+        word = generate_word(state.word, state.prompts)
         new_state = %{state | word: word}
         artist_name = Map.get(state.players, state.current_artist).name
         {:ok, round_number, max_rounds} = Rules.start_round(state.rules_pid)
@@ -303,21 +305,13 @@ defmodule Egaite.Game do
 
   defp via_tuple(game_id), do: {:via, Registry, {Egaite.GameRegistry, game_id}}
 
-  defp generate_word do
-    # Placeholder. Get from database
-    Enum.random([
-      "cat",
-      "dog",
-      "elephant",
-      "giraffe",
-      "monkey",
-      "rabbit",
-      "dolphin",
-      "turtle",
-      "lion",
-      "panda",
-      "snake"
-    ])
+  defp generate_word(:none, prompts) do
+    Enum.random(prompts).text
+  end
+
+  defp generate_word(current_prompt, prompts) do
+    prompt = Enum.filter(prompts, &(&1.text != current_prompt)) |> Enum.random
+    prompt.text
   end
 
   defp get_next_artist(current, players) do

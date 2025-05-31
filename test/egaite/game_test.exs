@@ -3,15 +3,27 @@ defmodule Egaite.GameTest do
   doctest Egaite.Game
   import Egaite.TestHelpers
 
-  alias Egaite.{Game, Player, GameOptions}
+  alias Egaite.{Game, Player, GameOptions, TestFactory}
 
   setup do
     id = Integer.to_string(:erlang.unique_integer([:positive]))
     player1 = %Player{id: "1"}
     player2 = %Player{id: "2"}
 
+    animals =
+      TestFactory.build_drawing_prompt_category(%{name: "Animals", description: "test animals"})
+
+    prompts =
+      Enum.map(["Elephant", "Lion", "Tiger"], fn text ->
+        TestFactory.build_drawing_prompt(%{text: text, categories: [animals]})
+      end)
+
     {:ok, game_pid} =
-      Game.start_link(id, player1, GameOptions.new(max_rounds: 2, break_duration: 0))
+      Game.start_link(
+        id,
+        player1,
+        GameOptions.new(max_rounds: 2, break_duration: 0, prompts: prompts)
+      )
 
     :ok = Phoenix.PubSub.subscribe(Egaite.PubSub, "game:#{id}")
     monitor_ref = Process.monitor(game_pid)
