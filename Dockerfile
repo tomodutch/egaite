@@ -22,14 +22,16 @@ FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+  && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+  && apt-get install -y nodejs \
+  && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # prepare build dir
 WORKDIR /app
 
 # install hex + rebar
 RUN mix local.hex --force && \
-    mix local.rebar --force
+  mix local.rebar --force
 
 # set build ENV
 ENV MIX_ENV="prod"
@@ -50,6 +52,16 @@ COPY priv priv
 COPY lib lib
 
 COPY assets assets
+
+# install npm packages inside assets folder
+WORKDIR /app/assets
+RUN npm install
+
+# build assets
+RUN npm run deploy
+
+# back to app root
+WORKDIR /app
 
 # compile assets
 RUN mix assets.deploy

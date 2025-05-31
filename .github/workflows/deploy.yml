@@ -33,7 +33,9 @@ jobs:
 
     env:
       MIX_ENV: test
-      DATABASE_URL: ecto://postgres:postgres@localhost/phoenix_test
+      DB_NAME: phoenix_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
 
     steps:
       - name: Checkout code
